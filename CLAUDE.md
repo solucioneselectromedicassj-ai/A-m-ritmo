@@ -39,13 +39,13 @@ android/        proyecto Capacitor (appId ar.miplan.app), StepCounterPlugin + St
 ## Datos (`localStorage`, clave `miplanV1`, `VERSION` = 1)
 ```
 { v, listo, modo, modulos:{ejercicio,pasos,agua,actividad,comida,medidas},
-  settings:{ metaPasos, metaAgua, aeroMeta, vaso, descansoSeg, aguaDesde, aguaHasta, recAgua, recMin, segundoPlano,
+  settings:{ metaPasos, metaAgua, aeroMeta, vaso, descansoSeg, aguaDesde, aguaHasta, recAgua, recMin, segundoPlano, pasosPedido,
             notas, color (azul|verde|violeta|naranja|rosa|gris), ultimoRespaldo, respaldoPospuesto, creado, informe:{periodo, excluir:{}} },
   ejercicios:[{id,n,tipo:'reps'|'series'|'tiempo',meta|series,reps|seg,nota?,fig?}],
   sesiones:[{id,n,dias:[0-6],hora,ej:[ids]}],
   medidas:[{id,tipo,n,campos:[{k,n,u,r,opc,dec,min,max}],repetirMeses,recordarHora}],
   registros:{ medidaId:[{fecha,…valores}] },          // un registro por fecha: cargar la misma fecha lo completa
-  days:{ 'YYYY-MM-DD':{pasos,agua,ej:{id:n},omit:{sesId},comida:{id},cont:{id}} },
+  days:{ 'YYYY-MM-DD':{pasos,agua,ej:{id:n},omit:{sesId},omitEj:{id:true},comida:{id},cont:{id}} },
   comida:{items:[{id,n}],contadores:[{id,n,meta}]}, aero:[{fecha,min,tipo}], molestias:{}, sensor }
 ```
 - **Nunca se pierden datos**: `load()` solo agrega campos, conserva claves desconocidas, deja copia intacta `miplanV1_antes_vN` si el formato es más viejo, conserva JSON corrupto en `miplanV1_corrupto` y guarda lo anterior en `miplanV1_antes_importar` al importar.
@@ -66,3 +66,8 @@ Las pruebas usan fecha simulada (lunes 19/10/2026) y simulan los plugins de Capa
 ## Android / publicación
 - CI: GitHub → Actions → "APK Android" → release `apk-latest` (APK debug firmado con `android/app/debug.keystore` fijo para poder actualizar encima).
 - **Pendiente antes de Play Store**: definir nombre/marca y `applicationId` definitivo (hoy `ar.miplan.app`, no se puede cambiar una vez publicada), firma propia (keystore de release guardado aparte), cuenta de desarrollador, política de privacidad, declaración de datos/salud, revisión profesional de la biblioteca de ejercicios, íconos y capturas, y cumplir los requisitos de pruebas cerradas que Google exija a cuentas personales.
+
+## Comportamientos pensados para gente que no configura nada
+- **Pasos (Android)**: al activar el módulo (o al terminar el asistente / primera apertura) se pide el permiso de actividad física solo (`iniciarPasos`, una vez: `settings.pasosPedido`) y el segundo plano queda activo por defecto; lo demás está bajo "Opciones".
+- **Ejercicio por ítem**: "Hoy no" (`days[k].omitEj`) o "No pude hoy" de la rutina entera. Al día siguiente aparece "Ayer no hiciste: …" (Hoy y Ejercicio) y, en modo con recordatorios, llega el aviso 3900. **No se suman repeticiones extra** (pensado para lesiones): solo se recuerda; no se acumula más de un día.
+- **Checklist de alimentación vacío**: las sugerencias se eligen de a varias y se agregan juntas.

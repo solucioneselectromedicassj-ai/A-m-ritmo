@@ -29,7 +29,7 @@ test('pasos (Android): el sensor reparte por día, detecta reinicio y el botón 
   await page.waitForTimeout(300);
   let S = await estado(page);
   assert.strictEqual(S.days['2026-10-18'].pasos, 300); assert.strictEqual(S.days['2026-10-19'].pasos, 260);
-  await irHab(page); await page.click('[data-a=bg-toggle]');
+  await irHab(page); await page.click('#view details summary'); await page.click('[data-a=bg-toggle]');
   assert.ok((await page.evaluate(() => window.__llamadas.map(x => x[1]))).includes('stopBackground'));
   assert.strictEqual((await estado(page)).settings.segundoPlano, false);
   // reinicio del teléfono: el contador baja → cuenta desde cero
@@ -79,7 +79,10 @@ test('actividad: validaciones y tipo libre escapado', async ({ abrir }) => {
 test('alimentación: checklist vacío con sugerencias; agregar, marcar y cumplimiento de la semana', async ({ abrir }) => {
   const { page, errores } = await abrir({ ls: con({ comida: true }), fecha: MIERCOLES });
   await irHab(page); assert.match(await texto(page), /Tu checklist está vacío/);
-  await page.click('[data-a=com-sug][data-v="0"]');
+  await page.click('[data-a=com-sug][data-v="0"]'); await page.click('[data-a=com-sug][data-v="1"]');
+  assert.match(await texto(page), /Tu checklist está vacío/, 'elegir una no cierra la pantalla: se pueden elegir varias');
+  await page.click('[data-a=com-sug][data-v="1"]');   // la desmarca
+  await page.click('[data-a=com-sug-ok]');
   await page.click('[data-a=com-sugs]'); assert.doesNotMatch(await page.innerText('#modal'), /Verduras en el almuerzo/, 'ya agregada: no se ofrece de nuevo');
   await page.check('#modal input[value="Sin frituras"]'); await page.click('#modal button[type=submit]');
   const S = await estado(page); assert.deepStrictEqual(S.comida.items.map(i => i.n), ['Verduras en el almuerzo', 'Sin frituras']);
@@ -123,4 +126,19 @@ test('Hoy resume los módulos activados y nada más', async ({ abrir }) => {
   const { page } = await abrir({ ls: con({ pasos: true, comida: true }, { comida: { items: [{ id: 'i1', n: 'A' }, { id: 'i2', n: 'B' }], contadores: [] }, days: { '2026-10-19': { pasos: 1234, comida: { i1: true } } } }) });
   const t = await texto(page);
   assert.match(t, /Pasos 1234/); assert.match(t, /Alimentación de hoy 1 \/ 2/); assert.doesNotMatch(t, /Agua|Actividad|Ejercicio de hoy/);
+});
+
+test('pasos (Android): la primera vez pide el permiso solo y después se cuenta sin tocar nada', async ({ abrir }) => {
+  const nat = { StepCounter: { isAvailable: '() => ({available:true})', hasPermission: '() => ({granted:false})', ensurePermission: '() => ({granted:true})', drain: '() => ({readings:[]})', read: '() => ({counter:500,bootTime:0})', startBackground: '() => ({})' } };
+  const { page } = await abrir({ ls: con({ pasos: true }), native: nat });
+  await page.waitForTimeout(400);
+  const ll = await page.evaluate(() => window.__llamadas.map(x => x[1]));
+  assert.ok(ll.includes('ensurePermission'), 'pide el permiso sin que la persona toque un botón');
+  assert.ok(ll.includes('startBackground'), 'el segundo plano queda activo por defecto');
+  assert.strictEqual((await estado(page)).settings.pasosPedido, true);
+  await irHab(page); assert.match(await texto(page), /Los pasos se cuentan solos, también con la app cerrada/);
+  assert.strictEqual(await page.locator('[data-a=sensor-sync]:visible').count(), 0, 'no hay botón de activar: ya está funcionando');
+  // segunda apertura: no vuelve a pedir
+  await page.evaluate(() => { window.__llamadas.length = 0; }); await page.reload(); await page.waitForFunction(() => window.SA); await page.waitForTimeout(300);
+  assert.ok(!(await page.evaluate(() => window.__llamadas.map(x => x[1]))).includes('ensurePermission'));
 });

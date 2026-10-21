@@ -145,3 +145,26 @@ test('plan: sin ejercicio activado no aparece la pestaña, y los datos se conser
   await page.check('[data-a=mod-t][data-k=ejercicio]');
   assert.strictEqual((await estado(page)).days['2026-10-19'].ej.e1, 5);
 });
+
+test('ejercicio por ítem: "Hoy no" lo anota, mañana aparece como pendiente (sin sumar de más) y se puede deshacer', async ({ abrir }) => {
+  const plan = { modulos: { ejercicio: true }, ejercicios: [EJ('e1', 'Giros', 'reps'), EJ('e2', 'Puente', 'series')], sesiones: [{ id: 's1', n: 'Mañana', dias: [0, 1, 2, 3, 4, 5, 6], hora: '', ej: ['e1'] }, { id: 's2', n: 'Solo martes', dias: [2], hora: '', ej: ['e2'] }] };
+  // hoy: lunes 19 → "Hoy no" en Giros
+  let a = await abrir({ ls: base(plan) });
+  await ir(a.page, 'ejercicio'); await a.page.click('[data-a=ej-no][data-id=e1]');
+  assert.deepStrictEqual((await estado(a.page)).days['2026-10-19'].omitEj, { e1: true });
+  assert.match(await texto(a.page), /Hoy no lo hacés: mañana te lo muestro como pendiente/);
+  await a.page.click('[data-a=ej-no-x][data-id=e1]'); assert.deepStrictEqual((await estado(a.page)).days['2026-10-19'].omitEj, {});
+  // mañana (martes 20): ayer salteó Giros (está en la rutina de hoy) y Puente de una rutina completa marcada "No pude hoy"
+  const ls = base(Object.assign({}, plan, { days: { '2026-10-19': { omitEj: { e1: true }, omit: { s2: true } } } }));
+  a = await abrir({ ls, fecha: '2026-10-20T12:00:00' });
+  await ir(a.page, 'ejercicio');
+  const t = await texto(a.page);
+  assert.match(t, /Ayer no hiciste: Giros, Puente/); assert.match(t, /No hace falta compensar con más repeticiones/);
+  assert.strictEqual(await a.page.locator('#view .item', { hasText: 'Giros' }).count(), 1, 'Giros no se duplica: ya está en la rutina de hoy');
+  assert.strictEqual(await a.page.locator('#view .item', { hasText: 'Puente' }).count(), 1, 'Puente se ofrece aunque hoy no lo programe la rutina');
+  assert.match(await texto(a.page, '#nav').then(() => '#view').then(() => a.page.innerText('#view')), /Ayer no hiciste/);
+  await a.page.click('[data-a=ej-][data-id=e1]').catch(() => { });
+  for (let i = 0; i < 10; i++) await a.page.click('[data-a="ej+"][data-id=e1]');
+  assert.doesNotMatch(await texto(a.page), /Ayer no hiciste: Giros/, 'al completarlo deja de figurar como pendiente');
+  await ir(a.page, 'hoy'); assert.match(await texto(a.page), /Ayer no hiciste: Puente/);
+});

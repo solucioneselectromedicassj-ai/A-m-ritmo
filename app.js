@@ -94,7 +94,7 @@
   const DEFAULTS = () => ({
     v: VERSION, listo: false, modo: 'registro',
     modulos: { ejercicio: false, pasos: false, agua: false, actividad: false, comida: false, medidas: false },
-    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
+    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, pasosPedido: false, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
       ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', color: 'azul', informe: { periodo: 90, excluir: {} } },
     ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, sensor: null
   });
@@ -379,14 +379,27 @@
     if (mod('actividad')) filas.push(meter('Actividad de la semana', minSemana(claveSemana(now)), s.aeroMeta, 'min'));
     if (mod('comida')) filas.push(meter('Alimentación de hoy', S.comida.items.filter(it => marcasDia()[it.id]).length, S.comida.items.length));
     return `<h2>${DIAS[now.getDay()]} ${now.getDate()} de ${MESES[now.getMonth()]}</h2>${tarjetaRespaldo()}${tarjetasAvisos()}
+    ${tarjetaPendientes(false)}
     <div class="card"><h3>Resumen del día</h3>${filas.join('') || '<p class="muted">Todavía no activaste ningún módulo. Hacelo en Ajustes.</p>'}</div>
     ${mod('agua') ? `<div class="card"><h3>Agua</h3><div class="row"><button class="ghost grow" data-a="agua-">− ${s.vaso} ml</button><button class="pri grow" data-a="agua+">+ vaso (${s.vaso} ml)</button></div></div>` : ''}
     ${mod('ejercicio') ? `<div class="card"><button class="pri" style="width:100%" data-a="tab" data-t="ejercicio">Ir a mi ejercicio</button></div>` : ''}
     ${AVISO_PIE}`;
   }
 
+  // Lo que ayer quedó sin hacer (ejercicio salteado a mano o rutina completa marcada "No pude hoy"). Se muestra hoy, sin sumar repeticiones extra.
+  function pendientesAyer() {
+    const ay = ymd(sumarDias(new Date(), -1)), pe = peek(ay), ids = new Set(Object.keys(pe.omitEj || {}));
+    Object.keys(pe.omit || {}).forEach(sid => { const se = sesPorId(sid); if (se) ejDeSesion(se).forEach(e => ids.add(e.id)); });
+    return [...ids].map(ejPorId).filter(e => e && progEj(e, ay) < metaEj(e) && progEj(e, hoy()) < metaEj(e));
+  }
+  function tarjetaPendientes(conTarjetas) {
+    if (!mod('ejercicio')) return '';
+    const p = pendientesAyer(); if (!p.length) return '';
+    const hoyIds = new Set(sesionesDelDia(new Date()).flatMap(ejDeSesion).map(e => e.id));
+    return `<div class="card warn"><b>Ayer no hiciste: ${p.map(e => esc(e.n)).join(', ')}</b><p>Hoy podés hacerlo si te sentís bien. No hace falta compensar con más repeticiones: seguí con la dosis de siempre.</p></div>${conTarjetas ? p.filter(e => !hoyIds.has(e.id)).map(e => ejCard(e)).join('') : ''}`;
+  }
   function ejCard(e, f = hoy()) {
-    const c = progEj(e, f), meta = metaEj(e), mol = S.molestias[e.id], id = esc(e.id);
+    const c = progEj(e, f), meta = metaEj(e), mol = S.molestias[e.id], id = esc(e.id), no = !!(peek(f).omitEj || {})[e.id];
     const fig = e.fig && window.FIG ? window.FIG(e.fig) : '';
     let ctl;
     if (e.tipo === 'reps') {
@@ -398,7 +411,8 @@
     }
     return `<div class="item ${c >= meta && meta > 0 ? 'done' : ''} ${mol ? 'pain' : ''}">
       <div class="item-main"><b>${esc(e.n)}</b>${fig}<small>${esc(dosisEj(e))}${e.nota ? ' — ' + esc(e.nota) : ''}</small>${mol ? '<small class="warnTxt">⚠ Marcado como molesto: salteálo o hacelo más suave, y consultalo con tu profesional.</small>' : ''}</div>
-      ${ctl}<div class="item-actions" style="margin-top:6px"><button class="ghost mini" data-a="mol" data-id="${id}">${mol ? 'Quitar marca' : 'Me molestó'}</button></div></div>`;
+      ${ctl}${no ? `<small class="warnTxt">Hoy no lo hacés${conRecordatorios() ? ': mañana te lo recuerdo' : ': mañana te lo muestro como pendiente'}.</small>` : ''}
+      <div class="item-actions" style="margin-top:6px"><button class="ghost mini" data-a="mol" data-id="${id}">${mol ? 'Quitar marca' : 'Me molestó'}</button>${no ? `<button class="ghost mini" data-a="ej-no-x" data-id="${id}">Deshacer "hoy no"</button>` : (c >= meta && meta > 0 ? '' : `<button class="ghost mini" data-a="ej-no" data-id="${id}">Hoy no</button>`)}</div></div>`;
   }
   function sesionBloque(s, f) {
     const k = ymd(f), ejs = ejDeSesion(s), hechos = ejs.filter(e => progEj(e, k) >= metaEj(e)).length, omit = (peek(k).omit || {})[s.id];
@@ -412,6 +426,7 @@
     if (!S.sesiones.length) return `<h2>Ejercicio</h2><div class="card"><h3>Todavía no tenés una rutina</h3><p>Armala a tu medida: elegí ejemplos de la biblioteca o creá tus propios ejercicios, con las repeticiones y los días que quieras.</p><div class="row"><button class="pri grow" data-a="plan-bib">Elegir de la biblioteca</button><button class="ghost grow" data-a="ej-nuevo">Crear un ejercicio</button></div></div>${AVISO_PIE}`;
     return `<h2>Ejercicio</h2>
     <div class="card warn"><b>Cortá el ejercicio y consultá si aparece:</b><p>dolor fuerte, mareo, falta de aire, hormigueo u otra sensación rara. Los ejercicios de ejemplo son suaves, pero cada cuerpo es distinto: consultá con tu profesional.</p></div>
+    ${tarjetaPendientes(true)}
     ${hoyS.length ? hoyS.map(s => sesionBloque(s, now)).join('') : '<div class="card"><b>Hoy no tenés rutina programada.</b></div>'}
     ${otras.length ? `<details class="card"><summary>Otras rutinas (${otras.length})</summary>${otras.map(s => `<p class="muted">${esc(s.n)} · ${esc(fmtDiasSes(s.dias || []))}</p>${ejDeSesion(s).map(e => ejCard(e)).join('')}`).join('')}</details>` : ''}
     <div class="card"><button class="ghost" style="width:100%" data-a="tab" data-t="ajustes">Editar mi plan de ejercicio</button></div>${AVISO_PIE}`;
@@ -466,10 +481,12 @@
   function subPasos() {
     const d = peek(), s = S.settings;
     const sens = NATIVE ? `<div class="card"><h3>Pasos automáticos</h3>
-      <p>${sensor.on ? `Contando con el sensor de pasos del teléfono. Última lectura: ${pad(new Date(sensor.last).getHours())}:${pad(new Date(sensor.last).getMinutes())}.` : esc(sensor.msg)}</p>
-      <div class="row"><button class="${sensor.on ? 'ghost' : 'pri'} grow" data-a="sensor-sync">${sensor.on ? 'Actualizar ahora' : 'Activar contador de pasos'}</button></div>
+      <p>${sensor.on ? `Los pasos se cuentan solos, también con la app cerrada. Última lectura: ${pad(new Date(sensor.last).getHours())}:${pad(new Date(sensor.last).getMinutes())}.` : esc(sensor.msg || 'Tocá el botón y aceptá el permiso de actividad física: después se cuentan solos.')}</p>
+      ${sensor.on ? '' : '<div class="row"><button class="pri grow" data-a="sensor-sync">Activar contador de pasos</button></div>'}
+      <details style="margin-top:8px"><summary style="min-height:44px;display:flex;align-items:center">Opciones</summary>
+      ${sensor.on ? '<div class="row"><button class="ghost grow" data-a="sensor-sync">Actualizar ahora</button></div>' : ''}
       <div class="row" style="margin-top:8px"><button class="${s.segundoPlano ? 'dang' : 'pri'} grow" data-a="bg-toggle">${s.segundoPlano ? 'Detener actualización en segundo plano' : 'Reanudar actualización en segundo plano'}</button></div>
-      <small>Segundo plano: ${s.segundoPlano ? 'activo, anota los pasos cada ~15 min aunque la app esté cerrada' : 'detenido; los pasos se suman cuando abrís la app'}. Si el teléfono se pone lento, detenelo desde acá.</small></div>` : '';
+      <small>Segundo plano: ${s.segundoPlano ? 'activo, anota los pasos cada ~15 min aunque la app esté cerrada' : 'detenido; los pasos se suman cuando abrís la app'}. Si el teléfono se pone lento, detenelo desde acá.</small></details></div>` : '';
     return `<div class="card"><div class="big" id="pasosNum">${d.pasos || 0}</div>
       <p class="muted" style="text-align:center">${s.metaPasos ? `meta: ${s.metaPasos} pasos` : 'sin meta (podés fijarla en Ajustes)'}</p>
       ${s.metaPasos ? `<div class="bar"><i id="pasosBar" style="width:${Math.min(100, Math.round((d.pasos || 0) / s.metaPasos * 100))}%"></i></div>` : ''}
@@ -501,9 +518,10 @@
       ${prom ? `<small>Promedio semanal: <b>${prom.prom} min</b> (${prom.semanas} semana${prom.semanas === 1 ? '' : 's'} con datos).</small>` : '<small>Todavía no hay registros.</small>'}
       <ul class="list">${recientes.map(r => `<li><span>${fmtFecha(r.fecha)} · <b>${r.min} min</b>${r.tipo ? ' · ' + esc(r.tipo) : ''}</span>${delBtn('aero', r.i)}</li>`).join('')}</ul></div>`;
   }
+  let sugSel = new Set();
   function subComida() {
     const items = S.comida.items, m = marcasDia(), c = cumplimientoSemana(lunesDe(new Date())), hechos = items.filter(it => m[it.id]).length;
-    if (!items.length && !S.comida.contadores.length) return `<div class="card"><h3>Tu checklist está vacío</h3><p>Armalo con lo que quieras seguir cada día. Tocá una sugerencia o agregá la tuya.</p>${SUGERENCIAS_COMIDA.map((t, i) => `<button class="chk-it" data-a="com-sug" data-v="${i}"><span>➕</span>${esc(t)}</button>`).join('')}<div class="row"><button class="pri grow" data-a="com-add">Agregar ítem propio</button></div><small>Las sugerencias son ejemplos: elegí lo que te indicó tu profesional.</small></div>`;
+    if (!items.length && !S.comida.contadores.length) return `<div class="card"><h3>Tu checklist está vacío</h3><p>Armalo con lo que quieras seguir cada día. Tocá una sugerencia o agregá la tuya.</p>${SUGERENCIAS_COMIDA.map((t, i) => `<button class="chk-it ${sugSel.has(i) ? 'on' : ''}" data-a="com-sug" data-v="${i}" aria-pressed="${sugSel.has(i) ? 'true' : 'false'}"><span>${sugSel.has(i) ? '✅' : '⬜'}</span>${esc(t)}</button>`).join('')}<div class="row"><button class="pri grow" data-a="com-sug-ok" ${sugSel.size ? '' : 'disabled'}>Agregar ${sugSel.size ? 'las ' + sugSel.size + ' elegidas' : 'las elegidas'}</button><button class="ghost grow" data-a="com-add">Agregar ítem propio</button></div><small>Tocá todas las que quieras. Son ejemplos: elegí lo que te indicó tu profesional.</small></div>`;
     return `<div class="card"><h3>Hoy</h3>${items.map(it => `<button class="chk-it ${m[it.id] ? 'on' : ''}" data-a="com-t" data-id="${esc(it.id)}" aria-pressed="${m[it.id] ? 'true' : 'false'}"><span>${m[it.id] ? '✅' : '⬜'}</span>${esc(it.n)}</button>`).join('') || '<p class="muted">Sin ítems diarios.</p>'}
       <small>Marcá cada ítem si lo cumpliste hoy (${hechos} de ${items.length}).</small></div>
     ${S.comida.contadores.map(ct => `<div class="card"><h3>${esc(ct.n)}</h3><div class="stepper"><button data-a="cont-" data-id="${esc(ct.id)}" aria-label="Una menos">−</button><span>${contDia(ct.id)}</span><button data-a="cont+" data-id="${esc(ct.id)}" aria-label="Una más">+</button></div>${meter('Esta semana (veces)', c.cont[ct.id] || 0, ct.meta)}</div>`).join('')}
@@ -642,6 +660,11 @@
       sensor.on = true; sensor.last = Date.now(); sensor.msg = '';
       save(); refreshPasos();
     } catch (e) { sensor.on = false; sensor.msg = `No se pudo leer el contador de pasos (${esc((e && (e.message || e)) || 'error')}).`; refreshPasos(); }
+  }
+  // Primera vez con el módulo de pasos: pide el permiso solo, para que la persona no tenga que configurar nada.
+  function iniciarPasos() {
+    if (!NATIVE || !mod('pasos')) return;
+    if (!S.settings.pasosPedido) { S.settings.pasosPedido = true; save(); syncSensor(true); } else syncSensor(false);
   }
   async function toggleSegundoPlano() {
     S.settings.segundoPlano = !S.settings.segundoPlano; save();
@@ -866,6 +889,8 @@
       case 'ej+5': setEj(id, n => n + 5); changed(); break;
       case 'ej-': setEj(id, n => n - 1); changed(); break;
       case 'ej-set': { const r = window.prompt('¿Cuántas hiciste?', String(progEj(ejPorId(id) || {}))); if (r !== null) { const v = Math.round(num(r)); if (v >= 0 && v <= 9999) { setEj(id, () => v); changed(); } else toast('Número no válido'); } break; }
+      case 'ej-no': { const d = day(); d.omitEj = d.omitEj || {}; d.omitEj[id] = true; changed(); recordarManana(S.sesiones.find(x => (x.ej || []).includes(id)), nombreEj(id)); toast(conRecordatorios() ? 'Anotado. Mañana te lo recuerdo' : 'Anotado. Mañana lo vas a ver como pendiente'); break; }
+      case 'ej-no-x': { const d = day(); if (d.omitEj) delete d.omitEj[id]; changed(); break; }
       case 'mol': { if (S.molestias[id]) delete S.molestias[id]; else S.molestias[id] = true; changed(); break; }
       case 'ses-todo': { const s = sesPorId(id), d = day(); d.ej = d.ej || {}; ejDeSesion(s).forEach(ej => { d.ej[ej.id] = Math.max(d.ej[ej.id] || 0, metaEj(ej)); }); if (d.omit) delete d.omit[id]; changed(); toast('¡Bien! Rutina completa'); break; }
       case 'ses-no': { const d = day(); d.omit = d.omit || {}; d.omit[id] = true; changed(); recordarManana(sesPorId(id)); toast(conRecordatorios() ? 'Listo, mañana te lo recuerdo' : 'Anotado'); break; }
@@ -894,7 +919,8 @@
         const d = day(); d.pasos = a === 'pasos-add' ? (d.pasos || 0) + n : n; changed(); break;
       }
       case 'com-t': { const d = day(); d.comida = d.comida || {}; if (d.comida[id]) delete d.comida[id]; else d.comida[id] = true; changed(); break; }
-      case 'com-sug': { const t = SUGERENCIAS_COMIDA[Number(b.dataset.v)]; if (t) { S.comida.items.push({ id: uid('i'), n: limpiar(t) }); changed(); } break; }
+      case 'com-sug': { const i = Number(b.dataset.v); if (sugSel.has(i)) sugSel.delete(i); else sugSel.add(i); render(); break; }
+      case 'com-sug-ok': { [...sugSel].sort((a, b2) => a - b2).forEach(i => { const t = SUGERENCIAS_COMIDA[i]; if (t) S.comida.items.push({ id: uid('i'), n: limpiar(t) }); }); sugSel = new Set(); changed(); toast('Agregadas. Podés sumar más con "Agregar ítem"'); break; }
       case 'com-add': modalTexto('Nuevo ítem del checklist', 'Qué querés cumplir cada día', '', n => { S.comida.items.push({ id: uid('i'), n: limpiar(n) }); }); break;
       case 'com-sugs': modalSugerencias(); break;
       case 'ci-ren': { const it = S.comida.items.find(x => x.id === id); if (it) modalTexto('Renombrar ítem', 'Nuevo nombre', it.n, n => { it.n = limpiar(n); }); break; }
@@ -933,7 +959,7 @@
   document.addEventListener('change', e => {
     const t = e.target;
     if (t.id === 'fileIn' && t.files[0]) importar(t.files[0]);
-    if (t.dataset && t.dataset.a === 'mod-t') { S.modulos[t.dataset.k] = t.checked; save(); setupReminders(); render(); if (t.dataset.k === 'pasos' && t.checked) syncSensor(false); }
+    if (t.dataset && t.dataset.a === 'mod-t') { S.modulos[t.dataset.k] = t.checked; save(); setupReminders(); render(); if (t.dataset.k === 'pasos' && t.checked) iniciarPasos(); }
   });
 
   function leerWizMetas() {
@@ -949,7 +975,7 @@
       const s = asegurarSesion(null);
       sel.forEach(b => { const e = { id: uid('e'), fig: b.fig, n: b.n, tipo: b.tipo, nota: b.nota }; ['meta', 'series', 'reps', 'seg'].forEach(k => { if (b[k] != null) e[k] = b[k]; }); S.ejercicios.push(e); s.ej.push(e.id); });
     }
-    S.listo = true; wiz = null; tab = 'hoy'; save(); setupReminders(); render(); window.scrollTo(0, 0);
+    S.listo = true; wiz = null; tab = 'hoy'; save(); setupReminders(); render(); window.scrollTo(0, 0); iniciarPasos();
     if (mod('pasos')) syncSensor(false);
   }
 
@@ -1026,11 +1052,11 @@
     } catch (e) { toast('No se pudieron programar los recordatorios'); }
   }
   // Aviso único para mañana (se usa con "No pude hoy").
-  async function recordarManana(se) {
+  async function recordarManana(se, ej) {
     const N = plug('LocalNotifications'); if (!N || !conRecordatorios()) return;
     try {
       const [hh, mm] = (se && horaOk(se.hora) ? se.hora : '09:00').split(':').map(Number), n = new Date();
-      await N.schedule({ notifications: [{ id: 3900, title: `🏋️ ${se ? se.n : 'Tu rutina'}: ayer no pudiste`, body: 'Hoy podés retomar si te sentís bien.', channelId: 'recordatorios', schedule: { at: new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1, hh, mm, 0), allowWhileIdle: true } }] });
+      await N.schedule({ notifications: [{ id: 3900, title: ej ? `🏋️ ${ej}: ayer no lo hiciste` : `🏋️ ${se ? se.n : 'Tu rutina'}: ayer no pudiste`, body: 'Hoy podés retomar si te sentís bien, sin sumar de más.', channelId: 'recordatorios', schedule: { at: new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1, hh, mm, 0), allowWhileIdle: true } }] });
     } catch (e) { /* sin permiso de notificaciones */ }
   }
   function notificarWeb(title, body) {
@@ -1055,7 +1081,7 @@
   aplicarColor();
   render();
   setupReminders();
-  if (NATIVE) { syncSensor(false); setInterval(() => syncSensor(false), 5 * 60000); }
+  if (NATIVE) { iniciarPasos(); setInterval(() => syncSensor(false), 5 * 60000); }
   else if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { });
 
   // Ganchos para pruebas automáticas.

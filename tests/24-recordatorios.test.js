@@ -83,3 +83,13 @@ test('ajustes de agua: horario y frecuencia validados', async ({ abrir }) => {
   await page.fill('#s_recMin', '60'); await page.fill('#s_aguaDesde', '07:00'); await page.click('form[data-f=metas] button[type=submit]');
   const s = (await estado(page)).settings; assert.deepStrictEqual([s.recMin, s.aguaDesde], [60, '07:00']);
 });
+
+test('"Hoy no" en un ejercicio agenda el aviso de mañana con su nombre (solo con recordatorios)', async ({ abrir }) => {
+  const a = await abrir({ ls: plan('recordatorios'), native: nativo() });
+  await a.page.waitForTimeout(200); await ir(a.page, 'ejercicio'); await a.page.click('[data-a=ej-no][data-id=e1]'); await a.page.waitForTimeout(200);
+  const ult = (await llamadas(a.page)).filter(x => x[1] === 'schedule').pop(), n = JSON.parse(ult[2])[0].notifications[0];
+  assert.strictEqual(n.id, 3900); assert.match(n.title, /Giros: ayer no lo hiciste/);
+  const b = await abrir({ ls: plan('registro'), native: nativo() });
+  await b.page.waitForTimeout(200); await ir(b.page, 'ejercicio'); await b.page.click('[data-a=ej-no][data-id=e1]'); await b.page.waitForTimeout(200);
+  assert.deepStrictEqual(await programadas(b.page), []);
+});
