@@ -172,3 +172,10 @@ input[type=time]{min-height:44px}
 details.card summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:600}
 .list li small{display:block}
 #nav[hidden]{display:none}
+
+/* selector de color */
+.colores{display:flex;flex-wrap:wrap;gap:8px}
+.color{display:flex;align-items:center;gap:8px;min-height:44px;padding:6px 12px;border:1px solid var(--line);border-radius:99px;background:var(--bg)}
+.color.on{border-color:var(--pri);background:var(--soft);font-weight:600}
+.sw{display:inline-block;width:20px;height:20px;border-radius:50%}
+.sw-azul{background:#1d4ed8}.sw-verde{background:#0f766e}.sw-violeta{background:#6d28d9}.sw-naranja{background:#c2410c}.sw-rosa{background:#be185d}.sw-gris{background:#374151}

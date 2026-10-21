@@ -67,6 +67,21 @@
     { fig: 'plancha', n: 'Plancha corta', tipo: 'tiempo', series: 2, seg: 15, nota: 'Podés apoyar las rodillas.' }
   ];
   const SUGERENCIAS_COMIDA = ['Verduras en el almuerzo', 'Verduras en la cena', 'Sin frituras', 'Sin gaseosas ni jugos azucarados', 'Fruta del día', 'Legumbres o cereales integrales'];
+  /* Colores de la app (solo apariencia). Cada uno: [claro: pri, soft, c1], [oscuro: pri, soft, texto sobre pri, c1] */
+  const COLORES = {
+    azul: ['Azul', null],
+    verde: ['Verde', ['#0f766e', '#e3f3f0', '#c2410c'], ['#2dd4bf', '#12302b', '#04201c', '#fb923c']],
+    violeta: ['Violeta', ['#6d28d9', '#efe7ff', '#c2410c'], ['#b79cff', '#261b48', '#170b36', '#fb923c']],
+    naranja: ['Naranja', ['#c2410c', '#ffe9dc', '#1d4ed8'], ['#fb923c', '#3a2112', '#2a1103', '#7aa2ff']],
+    rosa: ['Rosa', ['#be185d', '#fde7f1', '#0f766e'], ['#f472b6', '#3a1727', '#2e0a1b', '#2dd4bf']],
+    gris: ['Gris', ['#374151', '#e8ebf0', '#c2410c'], ['#cbd5e1', '#232b3b', '#0f172a', '#fb923c']]
+  };
+  function aplicarColor() {
+    const k = COLORES[S.settings.color] ? S.settings.color : 'azul', c = COLORES[k];
+    let st = document.getElementById('tema'); if (!st) { st = document.createElement('style'); st.id = 'tema'; document.head.appendChild(st); }
+    st.textContent = c[1] ? `:root{--pri:${c[1][0]};--c0:${c[1][0]};--soft:${c[1][1]};--c1:${c[1][2]}}@media (prefers-color-scheme:dark){:root{--pri:${c[2][0]};--c0:${c[2][0]};--soft:${c[2][1]};--pri-fg:${c[2][2]};--c1:${c[2][3]}}}` : '';
+    const m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', c[1] ? c[1][0] : '#1d4ed8');
+  }
   const MODOS = [
     ['registro', 'Solo registro', 'Anotás tus avances y nada más: sin recordatorios ni avisos.'],
     ['recordatorios', 'Registro y recordatorios', 'Además te avisa a las horas que elijas (rutina, agua, mediciones).'],
@@ -80,7 +95,7 @@
     v: VERSION, listo: false, modo: 'registro',
     modulos: { ejercicio: false, pasos: false, agua: false, actividad: false, comida: false, medidas: false },
     settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
-      ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', informe: { periodo: 90, excluir: {} } },
+      ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', color: 'azul', informe: { periodo: 90, excluir: {} } },
     ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, sensor: null
   });
   const CONOCIDAS = ['v', 'listo', 'modo', 'modulos', 'settings', 'ejercicios', 'sesiones', 'medidas', 'registros', 'days', 'comida', 'aero', 'molestias', 'sensor'];
@@ -502,6 +517,7 @@
     const s = S.settings;
     const campoNum = (n, l, v, ph, extra = '') => `<div><label for="s_${n}">${l}</label><input id="s_${n}" name="${n}" type="number" inputmode="decimal" step="any" value="${v == null ? '' : v}" placeholder="${esc(ph || '')}" ${extra}></div>`;
     const modo = `<div class="card"><h3>Modo de uso</h3>${MODOS.map(([k, n, t]) => `<button class="opcion ${S.modo === k ? 'on' : ''}" data-a="modo" data-v="${k}" aria-pressed="${S.modo === k ? 'true' : 'false'}"><b>${n}</b><small>${t}</small></button>`).join('')}${NATIVE ? '' : '<small>Los recordatorios con la app cerrada funcionan en la app Android.</small>'}</div>`;
+    const colorCard = `<div class="card"><h3>Color de la app</h3><div class="colores">${Object.keys(COLORES).map(k => `<button class="color ${(COLORES[s.color] ? s.color : 'azul') === k ? 'on' : ''}" data-a="color" data-v="${k}" aria-pressed="${(COLORES[s.color] ? s.color : 'azul') === k ? 'true' : 'false'}"><i class="sw sw-${k}"></i>${COLORES[k][0]}</button>`).join('')}</div></div>`;
     const mods = `<div class="card"><h3>Qué querés seguir</h3>${MODULOS.map(([k, ic, n]) => `<label class="chk"><input type="checkbox" data-a="mod-t" data-k="${k}" ${mod(k) ? 'checked' : ''}>${ic} ${n}</label>`).join('')}<small>Si desactivás algo, lo que cargaste se conserva.</small></div>`;
     const metas = `<form data-f="metas" class="card"><h3>Metas y recordatorios</h3><small>Todas son opcionales y las definís vos (con tu profesional, si corresponde). Dejá vacío para no tener meta.</small>
       ${mod('agua') ? `<div class="grid2">${campoNum('metaAgua', 'Meta de agua (ml/día)', s.metaAgua, 'Ej: 2000')}${campoNum('vaso', 'Tamaño del vaso (ml)', s.vaso, '', 'required min="1"')}</div>
@@ -539,7 +555,7 @@
       <input id="fileIn" type="file" accept="application/json,.json" hidden></div>
     <div class="card"><h3>Acerca de Mi Plan</h3><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. Mi Plan no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
       <div class="row"><button class="ghost grow" data-a="wiz-rehacer">Rehacer el asistente inicial</button></div></div>`;
-    return `<h2>Ajustes</h2>${modo}${mods}${metas}${plan}${meds}${com}${informe}${datos}`;
+    return `<h2>Ajustes</h2>${modo}${mods}${colorCard}${metas}${plan}${meds}${com}${informe}${datos}`;
   }
 
   /* ---------- Asistente inicial ---------- */
@@ -889,6 +905,7 @@
       case 'cont+': { const d = day(); d.cont = d.cont || {}; d.cont[id] = Math.min(99, (d.cont[id] || 0) + 1); changed(); break; }
       case 'cont-': { const d = day(); d.cont = d.cont || {}; d.cont[id] = Math.max(0, (d.cont[id] || 0) - 1); changed(); break; }
       // ajustes
+      case 'color': S.settings.color = b.dataset.v; aplicarColor(); changed(); break;
       case 'modo': S.modo = b.dataset.v; setupReminders(); changed(); break;
       case 'informe': informe(); break;
       case 'export': exportar(); break;
@@ -1035,6 +1052,7 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) save(); else if (NATIVE) syncSensor(false); });
   window.addEventListener('pagehide', save);
 
+  aplicarColor();
   render();
   setupReminders();
   if (NATIVE) { syncSensor(false); setInterval(() => syncSensor(false), 5 * 60000); }

@@ -40,7 +40,7 @@ android/        proyecto Capacitor (appId ar.miplan.app), StepCounterPlugin + St
 ```
 { v, listo, modo, modulos:{ejercicio,pasos,agua,actividad,comida,medidas},
   settings:{ metaPasos, metaAgua, aeroMeta, vaso, descansoSeg, aguaDesde, aguaHasta, recAgua, recMin, segundoPlano,
-            notas, ultimoRespaldo, respaldoPospuesto, creado, informe:{periodo, excluir:{}} },
+            notas, color (azul|verde|violeta|naranja|rosa|gris), ultimoRespaldo, respaldoPospuesto, creado, informe:{periodo, excluir:{}} },
   ejercicios:[{id,n,tipo:'reps'|'series'|'tiempo',meta|series,reps|seg,nota?,fig?}],
   sesiones:[{id,n,dias:[0-6],hora,ej:[ids]}],
   medidas:[{id,tipo,n,campos:[{k,n,u,r,opc,dec,min,max}],repetirMeses,recordarHora}],
