@@ -1,0 +1,21 @@
+{
+  "name": "mi-plan",
+  "version": "0.1.0",
+  "scripts": {
+    "build:web": "node scripts/build-web.js",
+    "sync": "node scripts/build-web.js && cap sync android",
+    "test": "node --check app.js && node --check sw.js && node --check figuras.js && node tests/run.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/share": "^8.0.3"
+  },
+  "private": true,
+  "devDependencies": {
+    "playwright-core": "^1.64.1"
+  }
+}

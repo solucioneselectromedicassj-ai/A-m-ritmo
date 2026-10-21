@@ -1,0 +1,6 @@
+{
+  "appId": "ar.miplan.app",
+  "appName": "Mi Plan",
+  "webDir": "www",
+  "android": { "allowMixedContent": false }
+}
