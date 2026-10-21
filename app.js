@@ -1,5 +1,5 @@
 'use strict';
-/* Mi Plan — PWA sin dependencias. Los datos viven solo en este dispositivo (localStorage). */
+/* A Mi Ritmo — PWA sin dependencias. Los datos viven solo en este dispositivo (localStorage). */
 (function () {
   const KEY = 'miplanV1';
   const VERSION = 1; // versión del formato de datos guardados
@@ -571,7 +571,7 @@
       <div class="row"><button class="pri grow" data-a="export">Exportar respaldo (JSON)</button><button class="ghost grow" data-a="copiar">Copiar respaldo</button></div>
       <div class="row" style="margin-top:8px"><button class="ghost grow" data-a="import">Importar respaldo</button><button class="dang grow" data-a="borrar">Borrar todo</button></div>
       <input id="fileIn" type="file" accept="application/json,.json" hidden></div>
-    <div class="card"><h3>Acerca de Mi Plan</h3><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. Mi Plan no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
+    <div class="card"><h3>Acerca de A Mi Ritmo</h3><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. A Mi Ritmo no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
       <div class="row"><button class="ghost grow" data-a="wiz-rehacer">Rehacer el asistente inicial</button></div></div>`;
     return `<h2>Ajustes</h2>${modo}${mods}${colorCard}${metas}${plan}${meds}${com}${informe}${datos}`;
   }
@@ -590,8 +590,8 @@
     const ps = wizPasos(), i = Math.min(wiz.paso, ps.length - 1), p = ps[i], s = S.settings;
     const campoNum = (n, l, v, ph) => `<div><label for="w_${n}">${l}</label><input id="w_${n}" name="${n}" type="number" inputmode="decimal" step="any" value="${v == null ? '' : v}" placeholder="${esc(ph)}"></div>`;
     let cuerpo = '';
-    if (p === 'bienvenida') cuerpo = `<h2>Bienvenido a Mi Plan</h2><p>Es una libreta para armar <b>tu propio plan de hábitos de salud</b> y anotar tus avances. Vos elegís qué seguir, cuánto y con qué límites. Lo que cargues queda en tu teléfono.</p>
-      <div class="card warn"><b>Importante</b><p>Mi Plan no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p></div>`;
+    if (p === 'bienvenida') cuerpo = `<h2>Bienvenido a A Mi Ritmo</h2><p>Es una libreta para armar <b>tu propio plan de hábitos de salud</b> y anotar tus avances. Vos elegís qué seguir, cuánto y con qué límites. Lo que cargues queda en tu teléfono.</p>
+      <div class="card warn"><b>Importante</b><p>A Mi Ritmo no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p></div>`;
     if (p === 'modulos') cuerpo = `<h2>¿Qué querés seguir?</h2><p class="muted">Elegí lo que te sirva. Podés cambiarlo cuando quieras.</p>${MODULOS.map(([k, ic, n, t]) => `<button class="chk-it ${wiz.mods[k] ? 'on' : ''}" data-a="wiz-mod" data-k="${k}" aria-pressed="${wiz.mods[k] ? 'true' : 'false'}"><span>${wiz.mods[k] ? '✅' : '⬜'}</span><span class="tx"><b>${ic} ${n}</b><small>${t}</small></span></button>`).join('')}`;
     if (p === 'mediciones') cuerpo = `<h2>¿Qué querés medir?</h2><p class="muted">Después podés poner tus propios límites en cada una (opcional).</p>${Object.keys(CATALOGO).map(k => `<button class="chk-it ${wiz.meds[k] ? 'on' : ''}" data-a="wiz-med" data-k="${k}" aria-pressed="${wiz.meds[k] ? 'true' : 'false'}"><span>${wiz.meds[k] ? '✅' : '⬜'}</span>${CATALOGO[k].ic} ${esc(CATALOGO[k].n)}</button>`).join('')}`;
     if (p === 'ejercicio') cuerpo = `<h2>Tu rutina de ejercicio</h2><p class="muted">Elegí ejemplos para empezar o salteá este paso y creá tus propios ejercicios después. Son ejemplos suaves, <b>no una indicación</b>: consultalos con tu profesional.</p>${BIBLIOTECA.map((b, n) => `<button class="chk-it ${wiz.bib[n] ? 'on' : ''}" data-a="wiz-bib" data-k="${n}" aria-pressed="${wiz.bib[n] ? 'true' : 'false'}"><span>${wiz.bib[n] ? '✅' : '⬜'}</span><span class="tx"><b>${esc(b.n)}</b><small>${esc(dosisEj(b))}</small></span></button>`).join('')}`;
@@ -650,7 +650,7 @@
       if (!(await conTiempo(P.isAvailable(), 10000)).available) { sensor.on = false; sensor.msg = 'Este teléfono no tiene sensor contador de pasos. Podés cargar los pasos a mano.'; return refreshPasos(); }
       let g = (await conTiempo(P.hasPermission(), 10000)).granted;
       if (!g && pedir) { sensor.msg = 'Pidiendo permiso de actividad física…'; refreshPasos(); g = (await conTiempo(P.ensurePermission(), 120000)).granted; }
-      if (!g) { sensor.on = false; sensor.msg = pedir ? 'No diste el permiso. Activalo en Ajustes del teléfono → Apps → Mi Plan → Permisos → Actividad física.' : 'Tocá "Activar contador de pasos" para empezar.'; return refreshPasos(); }
+      if (!g) { sensor.on = false; sensor.msg = pedir ? 'No diste el permiso. Activalo en Ajustes del teléfono → Apps → A Mi Ritmo → Permisos → Actividad física.' : 'Tocá "Activar contador de pasos" para empezar.'; return refreshPasos(); }
       let lecturas = [];
       try { lecturas = ((await conTiempo(P.drain(), 10000)).readings || []).filter(l => l && Number.isFinite(l.t) && Number.isFinite(l.c)); } catch (e) { /* sin lecturas en segundo plano */ }
       const r = await conTiempo(P.read(), 15000);
@@ -679,9 +679,9 @@
     await Sh.share({ title: titulo, text: titulo, files: [r.uri], dialogTitle: dialogo });
   }
   async function exportar() {
-    const json = JSON.stringify(S, null, 2), nombre = `mi-plan-respaldo-${hoy()}.json`;
+    const json = JSON.stringify(S, null, 2), nombre = `a-mi-ritmo-respaldo-${hoy()}.json`;
     try {
-      if (NATIVE && plug('Filesystem') && plug('Share')) { await compartirArchivo(nombre, json, 'Respaldo de Mi Plan', 'Guardar el respaldo en…'); marcarRespaldo(); toast('Elegí dónde guardarlo: Drive, correo o WhatsApp'); }
+      if (NATIVE && plug('Filesystem') && plug('Share')) { await compartirArchivo(nombre, json, 'Respaldo de A Mi Ritmo', 'Guardar el respaldo en…'); marcarRespaldo(); toast('Elegí dónde guardarlo: Drive, correo o WhatsApp'); }
       else {
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' })); a.download = nombre;
         document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); marcarRespaldo(); toast('Respaldo exportado');
@@ -720,7 +720,7 @@
     { const ini = per ? sumarDias(now, -per) : (Object.keys(S.days).sort()[0] ? fechaLocal(Object.keys(S.days).sort()[0]) : now); for (let d = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate()); ymd(d) <= hoy() && dias.length < 800; d = sumarDias(d, 1)) dias.push(ymd(d)); }
     const tabla = (cab, filas) => `<table><tr>${cab.map(c => `<th>${esc(c)}</th>`).join('')}</tr>${filas.map(f => `<tr>${f.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cab.length}">Sin registros</td></tr>`}</table>`;
     const prom = arr => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null);
-    let h = `<h1>Informe de salud — ${fmtFecha(hoy())}</h1><p>Período: ${per ? 'últimos ' + per + ' días' : 'todo lo registrado'}. Registros hechos por la propia persona con la app Mi Plan.</p>`;
+    let h = `<h1>Informe de salud — ${fmtFecha(hoy())}</h1><p>Período: ${per ? 'últimos ' + per + ' días' : 'todo lo registrado'}. Registros hechos por la propia persona con la app A Mi Ritmo.</p>`;
     if ((s.notas || '').trim()) h += `<h3>Indicaciones de mi profesional (anotadas por mí)</h3><p>${esc(s.notas).replace(/\n/g, '<br>')}</p>`;
     if (mod('medidas')) S.medidas.filter(m => inc('medida:' + m.id)).forEach(m => {
       const rows = regsOrd(m).filter(r => r.fecha >= desde), todas = regsOrd(m);
@@ -1041,13 +1041,13 @@
           const mn = h => { const [a, b] = h.split(':').map(Number); return a * 60 + b; }; let i = 0;
           for (let m = mn(s.aguaDesde); m < mn(s.aguaHasta) && i < 60; m += Math.max(15, s.recMin)) { diario(1000 + i++, `${pad(Math.floor(m / 60))}:${pad(m % 60)}`, '💧 Hora de tomar agua', `Vaso de ${s.vaso} ml`); }
         }
-        if (mod('medidas')) S.medidas.slice(0, 50).forEach((m, i) => { if (m.recordarHora && horaOk(m.recordarHora)) diario(2000 + i, m.recordarHora, `${m.n}: hora de medir`, 'Anotá el valor en Mi Plan.'); });
+        if (mod('medidas')) S.medidas.slice(0, 50).forEach((m, i) => { if (m.recordarHora && horaOk(m.recordarHora)) diario(2000 + i, m.recordarHora, `${m.n}: hora de medir`, 'Anotá el valor en A Mi Ritmo.'); });
         if (mod('ejercicio')) S.sesiones.slice(0, 80).forEach((se, i) => { if (se.hora && horaOk(se.hora)) (se.dias || []).forEach(d => { const [hh, mm] = se.hora.split(':').map(Number); list.push({ id: 3000 + i * 10 + d, title: `🏋️ ${se.n}`, body: 'Es hora de tu rutina. Después marcá lo que hiciste.', channelId: 'recordatorios', schedule: { on: { weekday: d + 1, hour: hh, minute: mm }, allowWhileIdle: true } }); }); });
       }
       if (!list.length) return;
       let perm = await N.checkPermissions();
       if (perm.display !== 'granted') perm = await N.requestPermissions();
-      if (perm.display !== 'granted') { toast('Activá las notificaciones de Mi Plan en los ajustes del teléfono'); return; }
+      if (perm.display !== 'granted') { toast('Activá las notificaciones de A Mi Ritmo en los ajustes del teléfono'); return; }
       try { await N.createChannel({ id: 'recordatorios', name: 'Recordatorios', importance: 4, vibration: true }); } catch (e) { /* ya existe */ }
       await N.schedule({ notifications: list });
     } catch (e) { toast('No se pudieron programar los recordatorios'); }

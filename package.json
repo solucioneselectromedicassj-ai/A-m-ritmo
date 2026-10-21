@@ -1,5 +1,5 @@
 {
-  "name": "mi-plan",
+  "name": "a-mi-ritmo",
   "version": "0.1.0",
   "scripts": {
     "build:web": "node scripts/build-web.js",

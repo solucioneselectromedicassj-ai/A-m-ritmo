@@ -71,7 +71,7 @@ test('"No pude hoy" agenda un aviso para mañana solo si el modo tiene recordato
 test('sin permiso de notificaciones: se avisa y no se programa', async ({ abrir }) => {
   const { page } = await abrir({ ls: plan('recordatorios'), native: { LocalNotifications: { getPending: '() => ({notifications:[]})', checkPermissions: '() => ({display:"denied"})', requestPermissions: '() => ({display:"denied"})' } } });
   await page.waitForTimeout(300);
-  assert.match(await page.innerText('#toast'), /Activá las notificaciones de Mi Plan/);
+  assert.match(await page.innerText('#toast'), /Activá las notificaciones de A Mi Ritmo/);
   assert.deepStrictEqual(await programadas(page), []);
 });
 

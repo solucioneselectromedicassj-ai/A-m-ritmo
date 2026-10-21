@@ -72,7 +72,7 @@ test('modal: un campo obligatorio vacío muestra el error y no guarda', async ({
 
 test('service worker: CACHE propio y ASSETS alineados con build-web y con los archivos reales', async () => {
   const sw = fs.readFileSync(path.join(RAIZ, 'sw.js'), 'utf8'), bw = fs.readFileSync(path.join(RAIZ, 'scripts/build-web.js'), 'utf8');
-  assert.match(sw, /const CACHE\s*=\s*'miplan-v1'/);
+  assert.match(sw, /const CACHE\s*=\s*'amiritmo-v1'/);
   const assets = eval(sw.match(/const ASSETS = (\[.*?\]);/)[1]).filter(x => x !== './');
   const build = eval(bw.match(/const FILES = (\[.*?\]);/)[1]).filter(x => x !== 'sw.js');
   assert.deepStrictEqual(assets.slice().sort(), build.slice().sort());
@@ -90,7 +90,7 @@ test('sin conexión: tras la primera carga, la app abre desde el service worker'
 
 test('manifest e íconos', async () => {
   const m = JSON.parse(fs.readFileSync(path.join(RAIZ, 'manifest.json'), 'utf8'));
-  assert.strictEqual(m.name, 'Mi Plan'); assert.strictEqual(m.display, 'standalone'); assert.match(m.lang, /^es/);
+  assert.strictEqual(m.name, 'A Mi Ritmo'); assert.strictEqual(m.display, 'standalone'); assert.match(m.lang, /^es/);
   m.icons.forEach(i => assert.ok(fs.existsSync(path.join(RAIZ, i.src)), i.src));
 });
 

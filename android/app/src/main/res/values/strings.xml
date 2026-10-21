@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Mi Plan</string>
-    <string name="title_activity_main">Mi Plan</string>
-    <string name="package_name">ar.miplan.app</string>
-    <string name="custom_url_scheme">ar.miplan.app</string>
+    <string name="app_name">A Mi Ritmo</string>
+    <string name="title_activity_main">A Mi Ritmo</string>
+    <string name="package_name">ar.amiritmo.app</string>
+    <string name="custom_url_scheme">ar.amiritmo.app</string>
 </resources>

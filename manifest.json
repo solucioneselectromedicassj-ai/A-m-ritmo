@@ -1,6 +1,6 @@
 {
-  "name": "Mi Plan",
-  "short_name": "Mi Plan",
+  "name": "A Mi Ritmo",
+  "short_name": "A Mi Ritmo",
   "description": "Tu plan de hábitos de salud: ejercicio, agua, alimentación y mediciones, a tu medida.",
   "lang": "es-AR",
   "start_url": "./index.html",

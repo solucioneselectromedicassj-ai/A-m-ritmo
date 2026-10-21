@@ -1,6 +1,6 @@
 {
-  "appId": "ar.miplan.app",
-  "appName": "Mi Plan",
+  "appId": "ar.amiritmo.app",
+  "appName": "A Mi Ritmo",
   "webDir": "www",
   "android": { "allowMixedContent": false }
 }

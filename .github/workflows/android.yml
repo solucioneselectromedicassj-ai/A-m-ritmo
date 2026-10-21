@@ -35,15 +35,15 @@ jobs:
           ./gradlew assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: mi-plan-apk
+          name: a-mi-ritmo-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Publicar APK en Releases (para bajarlo desde el celular)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk mi-plan.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk a-mi-ritmo.apk
           gh release delete apk-latest --yes --cleanup-tag || true
-          gh release create apk-latest mi-plan.apk --prerelease --target "$GITHUB_SHA" \
-            --title "Mi Plan (APK de prueba)" \
+          gh release create apk-latest a-mi-ritmo.apk --prerelease --target "$GITHUB_SHA" \
+            --title "A Mi Ritmo (APK de prueba)" \
             --notes "APK debug de la rama $GITHUB_REF_NAME, commit ${GITHUB_SHA::7}. Instalar con permiso de apps desconocidas."

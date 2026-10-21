@@ -13,7 +13,7 @@ test('primer uso: muestra el asistente, sin navegación y con todo vacío (sin m
   ['metaPasos', 'metaAgua', 'aeroMeta'].forEach(k => assert.strictEqual(S.settings[k], null, k));
   ['ejercicios', 'sesiones', 'medidas', 'aero'].forEach(k => assert.deepStrictEqual(S[k], [], k));
   assert.deepStrictEqual(S.registros, {}); assert.deepStrictEqual(S.days, {}); assert.deepStrictEqual(S.comida, { items: [], contadores: [] });
-  assert.match(await texto(page), /Bienvenido a Mi Plan/);
+  assert.match(await texto(page), /Bienvenido a A Mi Ritmo/);
   assert.match(await texto(page), /no es un servicio médico/);
   assert.ok(await page.locator('#nav').isHidden(), 'sin barra de navegación durante el asistente');
   assert.deepStrictEqual(errores, []);
@@ -78,7 +78,7 @@ test('asistente: se puede volver atrás y lo elegido se conserva', async ({ abri
 test('rehacer el asistente no borra los datos', async ({ abrir }) => {
   const { page } = await abrir({ ls: base({ modulos: { medidas: true }, registros: { m1: [{ fecha: '2026-10-10', ts: 1, kg: 80 }] }, medidas: [{ id: 'm1', tipo: 'peso', n: 'Peso', campos: [{ k: 'kg', n: 'Peso', u: 'kg', r: [20, 400], min: null, max: null }], repetirMeses: null, recordarHora: '' }] }), dialogos: [true] });
   await page.click('#nav [data-t=ajustes]'); await page.click('[data-a=wiz-rehacer]');
-  assert.match(await texto(page), /Bienvenido a Mi Plan/);
+  assert.match(await texto(page), /Bienvenido a A Mi Ritmo/);
   await page.click('[data-a=wiz-fin]');
   const S = await estado(page);
   assert.strictEqual(S.registros.m1.length, 1); assert.strictEqual(S.medidas.length, 1); assert.strictEqual(S.modulos.medidas, true, 'lo que ya tenías activado se mantiene');

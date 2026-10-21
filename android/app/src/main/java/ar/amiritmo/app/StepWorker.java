@@ -1,4 +1,4 @@
-package ar.miplan.app;
+package ar.amiritmo.app;
 
 import android.Manifest;
 import android.content.Context;

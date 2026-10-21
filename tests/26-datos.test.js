@@ -43,7 +43,7 @@ test('exportar (web): descarga el JSON con todo y marca el respaldo', async ({ a
   const { page } = await abrir({ ls: con() });
   await ir(page, 'ajustes');
   const [d] = await Promise.all([page.waitForEvent('download'), page.click('[data-a=export]')]);
-  assert.strictEqual(d.suggestedFilename(), 'mi-plan-respaldo-2026-10-19.json');
+  assert.strictEqual(d.suggestedFilename(), 'a-mi-ritmo-respaldo-2026-10-19.json');
   const j = JSON.parse(require('fs').readFileSync(await d.path(), 'utf8'));
   assert.strictEqual(j.registros.m_peso[0].kg, 80);
   assert.ok((await estado(page)).settings.ultimoRespaldo > 0);
@@ -54,7 +54,7 @@ test('exportar (Android): se guarda en caché y se abre el menú de compartir', 
   await ir(page, 'ajustes'); await page.click('[data-a=export]'); await page.waitForTimeout(250);
   const ll = await page.evaluate(() => window.__llamadas);
   const w = JSON.parse(ll.find(x => x[1] === 'writeFile')[2])[0];
-  assert.strictEqual(w.path, 'mi-plan-respaldo-2026-10-19.json'); assert.strictEqual(w.directory, 'CACHE'); assert.strictEqual(JSON.parse(w.data).registros.m_peso[0].kg, 80);
+  assert.strictEqual(w.path, 'a-mi-ritmo-respaldo-2026-10-19.json'); assert.strictEqual(w.directory, 'CACHE'); assert.strictEqual(JSON.parse(w.data).registros.m_peso[0].kg, 80);
   assert.ok(ll.find(x => x[1] === 'share')); assert.ok((await estado(page)).settings.ultimoRespaldo > 0);
 });
 

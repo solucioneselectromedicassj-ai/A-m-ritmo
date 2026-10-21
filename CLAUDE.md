@@ -1,4 +1,6 @@
-# Mi Plan
+# A Mi Ritmo
+
+> Nombre interno anterior: "Mi Plan". Por eso la clave de localStorage sigue siendo `miplanV1` (no cambiarla: sería perder datos). applicationId: `ar.amiritmo.app` (definitivo una vez publicada).
 
 App configurable (PWA + APK Android con Capacitor) para que cada persona arme **su propio plan** de ejercicio, mediciones y hábitos, lo registre y, si quiere, se lo muestre a su profesional de la salud.
 Nace de "Salud Activa" (app personal en `/appgym`), pero **no comparte datos ni claves con ella** y no trae ningún registro cargado.
@@ -32,7 +34,7 @@ sw.js           service worker (cache-first), CACHE = 'miplan-vN'
 manifest.json, icon.svg, icon-192.png, icon-512.png
 tests/          Playwright + Chromium: `npm test`
 capacitor.config.json, package.json, scripts/build-web.js   empaquetado Android
-android/        proyecto Capacitor (appId ar.miplan.app), StepCounterPlugin + StepWorker (sensor de pasos en segundo plano)
+android/        proyecto Capacitor (appId ar.amiritmo.app), StepCounterPlugin + StepWorker (sensor de pasos en segundo plano)
 .github/workflows/android.yml   compila el APK y lo publica como prerelease `apk-latest`
 ```
 
@@ -65,7 +67,7 @@ Las pruebas usan fecha simulada (lunes 19/10/2026) y simulan los plugins de Capa
 
 ## Android / publicación
 - CI: GitHub → Actions → "APK Android" → release `apk-latest` (APK debug firmado con `android/app/debug.keystore` fijo para poder actualizar encima).
-- **Pendiente antes de Play Store**: definir nombre/marca y `applicationId` definitivo (hoy `ar.miplan.app`, no se puede cambiar una vez publicada), firma propia (keystore de release guardado aparte), cuenta de desarrollador, política de privacidad, declaración de datos/salud, revisión profesional de la biblioteca de ejercicios, íconos y capturas, y cumplir los requisitos de pruebas cerradas que Google exija a cuentas personales.
+- **Pendiente antes de Play Store**: definir nombre/marca y `applicationId` definitivo (hoy `ar.amiritmo.app`, no se puede cambiar una vez publicada), firma propia (keystore de release guardado aparte), cuenta de desarrollador, política de privacidad, declaración de datos/salud, revisión profesional de la biblioteca de ejercicios, íconos y capturas, y cumplir los requisitos de pruebas cerradas que Google exija a cuentas personales.
 
 ## Comportamientos pensados para gente que no configura nada
 - **Pasos (Android)**: al activar el módulo (o al terminar el asistente / primera apertura) se pide el permiso de actividad física solo (`iniciarPasos`, una vez: `settings.pasosPedido`) y el segundo plano queda activo por defecto; lo demás está bajo "Opciones".
