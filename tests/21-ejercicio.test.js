@@ -168,3 +168,15 @@ test('ejercicio por ítem: "Hoy no" lo anota, mañana aparece como pendiente (si
   assert.doesNotMatch(await texto(a.page), /Ayer no hiciste: Giros/, 'al completarlo deja de figurar como pendiente');
   await ir(a.page, 'hoy'); assert.match(await texto(a.page), /Ayer no hiciste: Puente/);
 });
+
+test('ejercicio por ítem: "Lo hice" completa la dosis y saca la marca "hoy no"', async ({ abrir }) => {
+  const { page } = await abrir({ ls: plan() });
+  await ir(page, 'ejercicio');
+  await page.click('[data-a=ej-no][data-id=e1]');
+  await page.click('[data-a=ej-ok][data-id=e1]');
+  let S = await estado(page);
+  assert.strictEqual(S.days['2026-10-19'].ej.e1, 30); assert.deepStrictEqual(S.days['2026-10-19'].omitEj, {});
+  assert.strictEqual(await page.locator('[data-a=ej-ok][data-id=e1]').count(), 0, 'ya hecho: no se ofrece de nuevo');
+  await page.click('[data-a=ej-ok][data-id=e2]');   // series
+  S = await estado(page); assert.strictEqual(S.days['2026-10-19'].ej.e2, 2);
+});

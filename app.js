@@ -412,7 +412,7 @@
     return `<div class="item ${c >= meta && meta > 0 ? 'done' : ''} ${mol ? 'pain' : ''}">
       <div class="item-main"><b>${esc(e.n)}</b>${fig}<small>${esc(dosisEj(e))}${e.nota ? ' — ' + esc(e.nota) : ''}</small>${mol ? '<small class="warnTxt">⚠ Marcado como molesto: salteálo o hacelo más suave, y consultalo con tu profesional.</small>' : ''}</div>
       ${ctl}${no ? `<small class="warnTxt">Hoy no lo hacés${conRecordatorios() ? ': mañana te lo recuerdo' : ': mañana te lo muestro como pendiente'}.</small>` : ''}
-      <div class="item-actions" style="margin-top:6px"><button class="ghost mini" data-a="mol" data-id="${id}">${mol ? 'Quitar marca' : 'Me molestó'}</button>${no ? `<button class="ghost mini" data-a="ej-no-x" data-id="${id}">Deshacer "hoy no"</button>` : (c >= meta && meta > 0 ? '' : `<button class="ghost mini" data-a="ej-no" data-id="${id}">Hoy no</button>`)}</div></div>`;
+      <div class="item-actions" style="margin-top:6px">${c >= meta && meta > 0 ? '' : `<button class="pri mini" data-a="ej-ok" data-id="${id}">✅ Lo hice</button>`}<button class="ghost mini" data-a="mol" data-id="${id}">${mol ? 'Quitar marca' : 'Me molestó'}</button>${no ? `<button class="ghost mini" data-a="ej-no-x" data-id="${id}">Deshacer "hoy no"</button>` : (c >= meta && meta > 0 ? '' : `<button class="ghost mini" data-a="ej-no" data-id="${id}">Hoy no</button>`)}</div></div>`;
   }
   function sesionBloque(s, f) {
     const k = ymd(f), ejs = ejDeSesion(s), hechos = ejs.filter(e => progEj(e, k) >= metaEj(e)).length, omit = (peek(k).omit || {})[s.id];
@@ -889,6 +889,7 @@
       case 'ej+5': setEj(id, n => n + 5); changed(); break;
       case 'ej-': setEj(id, n => n - 1); changed(); break;
       case 'ej-set': { const r = window.prompt('¿Cuántas hiciste?', String(progEj(ejPorId(id) || {}))); if (r !== null) { const v = Math.round(num(r)); if (v >= 0 && v <= 9999) { setEj(id, () => v); changed(); } else toast('Número no válido'); } break; }
+      case 'ej-ok': { const e = ejPorId(id); if (e) { setEj(id, n => Math.max(n, metaEj(e))); const d = day(); if (d.omitEj) delete d.omitEj[id]; changed(); toast('¡Bien! Ejercicio hecho'); } break; }
       case 'ej-no': { const d = day(); d.omitEj = d.omitEj || {}; d.omitEj[id] = true; changed(); recordarManana(S.sesiones.find(x => (x.ej || []).includes(id)), nombreEj(id)); toast(conRecordatorios() ? 'Anotado. Mañana te lo recuerdo' : 'Anotado. Mañana lo vas a ver como pendiente'); break; }
       case 'ej-no-x': { const d = day(); if (d.omitEj) delete d.omitEj[id]; changed(); break; }
       case 'mol': { if (S.molestias[id]) delete S.molestias[id]; else S.molestias[id] = true; changed(); break; }
