@@ -596,6 +596,7 @@
       <p class="muted">Todo se guarda solo en este teléfono: no hay cuentas ni servidores. Hacé copias de seguridad. Último respaldo: <b>${s.ultimoRespaldo ? fmtFecha(ymd(new Date(s.ultimoRespaldo))) : 'nunca'}</b>.</p>
       <div class="row"><button class="pri grow" data-a="export">Exportar respaldo (JSON)</button><button class="ghost grow" data-a="copiar">Copiar respaldo</button></div>
       <div class="row" style="margin-top:8px"><button class="ghost grow" data-a="import">Importar respaldo</button><button class="dang grow" data-a="borrar">Borrar todo</button></div>
+      <small>"Importar respaldo" también acepta el respaldo de Salud Activa: lo convierte y no pierde nada.</small>
       <input id="fileIn" type="file" accept="application/json,.json" hidden></div>
     <div class="card"><h3>Acerca de A Mi Ritmo</h3><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. A Mi Ritmo no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
       <div class="row"><button class="ghost grow" data-a="wiz-rehacer">Rehacer el asistente inicial</button></div></div>`;
@@ -718,15 +719,75 @@
   async function copiarRespaldo() {
     try { await navigator.clipboard.writeText(JSON.stringify(S, null, 2)); marcarRespaldo(); toast('Respaldo copiado: pegalo en una nota o en un mensaje a vos mismo'); render(); } catch (e) { toast('No se pudo copiar'); }
   }
+  /* ---------- Importar el respaldo de "Salud Activa" (la app personal anterior) ---------- */
+  const SA_RUTINA = [['giros', 'Giros de cadera', 30, 'Círculos amplios pero suaves, sin forzar la zona lumbar.'], ['brazos', 'Estiramiento de brazos a los costados', 10, 'Respirá con normalidad, sin aguantar el aire.'], ['piernas', 'Flexiones de piernas', 15, 'Rodillas alineadas con la punta de los pies.'],
+    ['aperturas', 'Aperturas de brazos y espalda', 15, 'Abrí el pecho llevando los omóplatos hacia atrás, sin arquear la zona lumbar.'], ['rodillas', 'Levantamiento de rodillas', 20, 'Torso erguido, ritmo cómodo.'], ['agacharse', 'Agacharse (arriba y abajo)', 10, 'Doblá caderas y rodillas con la espalda recta; no dobles la cintura.']];
+  const SA_CORE = [['gato', 'Gato-camello', 2, 8, 0, 'En cuatro apoyos, redondeá y arqueá la espalda despacio, solo hasta donde no duela.'], ['bird', 'Bird-dog (brazo y pierna opuestos)', 2, 6, 0, 'Estirá brazo y pierna contrarios, mantené 3-5 s con la pelvis quieta.'],
+    ['deadbug', 'Dead bug', 2, 6, 0, 'Boca arriba, zona lumbar apoyada; bajá brazo y pierna contrarios sin despegarla.'], ['puente', 'Puente de glúteos', 2, 8, 0, 'Subí la cadera apretando glúteos; no arquees la zona lumbar al subir.'],
+    ['lateral', 'Plancha lateral (rodillas apoyadas)', 2, 0, 15, 'Cuerpo en línea, hombro sobre el codo. Respirá, no aguantes el aire.'], ['plancha', 'Plancha corta', 2, 0, 15, 'Podés apoyar las rodillas. Abdomen firme, sin hundir la cintura.']];
+  const esCopiaSaludActiva = r => esObjeto(r) && esObjeto(r.days) && !Array.isArray(r.medidas) && ['peso', 'presion', 'colesterol', 'spo2', 'aero'].some(k => Array.isArray(r[k]));
+  function desdeSaludActiva(r) {
+    const d = DEFAULTS(), o = esObjeto(r.settings) ? r.settings : {}, num = x => (Number.isFinite(Number(x)) && x !== null && x !== '' ? Number(x) : null);
+    const lista = k => (Array.isArray(r[k]) ? r[k].filter(esObjeto) : []), plan = esObjeto(r.plan) ? r.plan : {};
+    const fechaDeTs = ts => (Number.isFinite(ts) ? ymd(new Date(ts)) : null), horaDeTs = ts => (Number.isFinite(ts) ? `${pad(new Date(ts).getHours())}:${pad(new Date(ts).getMinutes())}` : '');
+    d.listo = true; d.modo = 'avisos'; Object.keys(d.modulos).forEach(k => { d.modulos[k] = true; });
+    // ejercicios (ids con prefijo para que los registros diarios sigan apuntando a cada uno)
+    SA_RUTINA.forEach(([id, n, meta, tip]) => { const p = esObjeto(plan[id]) ? plan[id] : {}; d.ejercicios.push({ id: 'r_' + id, n, tipo: 'reps', meta: num(p.meta) > 0 ? num(p.meta) : meta, nota: tip, fig: id }); });
+    SA_CORE.forEach(([id, n, ser, reps, seg, tip]) => { const p = esObjeto(plan[id]) ? plan[id] : {}, series = num(p.series) > 0 ? num(p.series) : ser;
+      d.ejercicios.push(seg ? { id: 'c_' + id, n, tipo: 'tiempo', series, seg: num(p.seg) > 0 ? num(p.seg) : seg, nota: tip, fig: id } : { id: 'c_' + id, n, tipo: 'series', series, reps: num(p.reps) > 0 ? num(p.reps) : reps, nota: tip, fig: id }); });
+    const dias = (x, def) => (Array.isArray(x) ? x.filter(v => Number.isInteger(v) && v >= 0 && v <= 6) : def);
+    d.sesiones = [{ id: 'ses_rutina', n: 'Rutina matutina', dias: dias(o.agRutDias, [0, 1, 2, 3, 4, 5, 6]), hora: o.agRutOn !== false && horaOk(o.agRutHora) ? o.agRutHora : '', ej: SA_RUTINA.map(x => 'r_' + x[0]) },
+      { id: 'ses_core', n: 'Espalda y core', dias: dias(o.agCoreDias, [1, 3, 5]), hora: o.agCoreOn !== false && horaOk(o.agCoreHora) ? o.agCoreHora : '', ej: SA_CORE.map(x => 'c_' + x[0]) }];
+    if (esObjeto(r.dolor)) Object.keys(r.dolor).forEach(id => { if (r.dolor[id]) d.molestias[SA_RUTINA.some(x => x[0] === id) ? 'r_' + id : 'c_' + id] = true; });
+    // mediciones y sus límites (los que ya tenías configurados)
+    const med = (tipo, ajustar) => { const m = nuevaMedida(tipo); m.id = 'm_' + tipo; ajustar(m); d.medidas.push(m); return m; };
+    const lim = (m, k, mn, mx) => { const c = m.campos.find(x => x.k === k); if (c) { c.min = mn; c.max = mx; } };
+    med('presion', m => lim(m, 'sis', null, num(o.pSis) > 1 ? num(o.pSis) - 1 : null) || lim(m, 'dia', null, num(o.pDia) > 1 ? num(o.pDia) - 1 : null));   // Salud Activa avisaba desde el umbral (≥); acá el límite es "por encima de"
+    med('peso', m => { if (num(o.pesoObj) != null && num(o.pesoTol) != null) lim(m, 'kg', Math.round((o.pesoObj - o.pesoTol) * 10) / 10, Math.round((o.pesoObj + o.pesoTol) * 10) / 10); });
+    med('colesterol', m => { lim(m, 'ldl', null, num(o.ldlMeta)); m.repetirMeses = 2; });
+    med('spo2', m => { lim(m, 'sat', num(o.spo2Min), null); if (o.recSpo2 && typeof o.horasSpo2 === 'string') { const h = o.horasSpo2.split(',')[0].trim(); if (horaOk(h)) m.recordarHora = h; } });
+    const reg = (id, arr) => { d.registros[id] = arr; };
+    reg('m_presion', lista('presion').map(x => { const f = fechaDeTs(x.ts); return f ? Object.assign({ fecha: f, hora: horaDeTs(x.ts), sis: num(x.sis), dia: num(x.dia) }, num(x.pul) != null ? { pul: num(x.pul) } : {}) : null; }).filter(x => x && x.sis != null && x.dia != null));
+    reg('m_peso', lista('peso').filter(x => typeof x.fecha === 'string' && num(x.kg) != null).map(x => ({ fecha: x.fecha, kg: num(x.kg) })));
+    reg('m_colesterol', lista('colesterol').filter(x => typeof x.fecha === 'string').map(x => { const q = { fecha: x.fecha }; ['ldl', 'hdl', 'total', 'tg'].forEach(k => { if (num(x[k]) != null) q[k] = num(x[k]); }); return q; }));
+    reg('m_spo2', lista('spo2').map(x => { const f = fechaDeTs(x.ts); return f && num(x.spo2) != null ? Object.assign({ fecha: f, hora: horaDeTs(x.ts), sat: num(x.spo2) }, num(x.pul) != null ? { pul: num(x.pul) } : {}) : null; }).filter(Boolean));
+    d.aero = lista('aero').filter(x => typeof x.fecha === 'string' && num(x.min) > 0).map(x => ({ fecha: x.fecha, min: num(x.min), tipo: typeof x.tipo === 'string' ? x.tipo.slice(0, 40) : '' }));
+    // alimentación
+    const items = esObjeto(r.comida) && Array.isArray(r.comida.items) ? r.comida.items.filter(x => esObjeto(x) && x.id && x.n) : [];
+    d.comida = { items, contadores: [{ id: 'c_pescado', n: 'Pescado azul', meta: num(o.pescadoMeta) > 0 ? num(o.pescadoMeta) : 2 }] };
+    // días
+    Object.keys(r.days).forEach(k => {
+      const x = r.days[k]; if (!esObjeto(x) || !/^\d{4}-\d{2}-\d{2}$/.test(k)) return;
+      const y = {}, ej = {};
+      if (num(x.pasos) != null) y.pasos = num(x.pasos); if (num(x.agua) != null) y.agua = num(x.agua);
+      if (esObjeto(x.rutina)) Object.keys(x.rutina).forEach(id => { if (num(x.rutina[id]) != null) ej['r_' + id] = num(x.rutina[id]); });
+      if (esObjeto(x.core)) Object.keys(x.core).forEach(id => { if (num(x.core[id]) != null) ej['c_' + id] = num(x.core[id]); });
+      if (Object.keys(ej).length) y.ej = ej;
+      if (x.omitido) y.omit = { ses_core: true };
+      if (esObjeto(x.comida) && Object.keys(x.comida).length) y.comida = x.comida;
+      if (num(x.pescado) > 0) y.cont = { c_pescado: num(x.pescado) };
+      if (Object.keys(y).length) d.days[k] = y;
+    });
+    // ajustes
+    const S2 = d.settings;
+    ['metaPasos', 'metaAgua', 'vaso', 'aeroMeta'].forEach(k => { if (num(o[k]) > 0) S2[k] = num(o[k]); });
+    S2.recAgua = !!o.recAgua; if (num(o.recMin) >= 15) S2.recMin = num(o.recMin); S2.segundoPlano = o.segundoPlano !== false;
+    if (typeof o.notas === 'string') S2.notas = o.notas.slice(0, 2000);
+    const fechas = Object.keys(d.days).concat(d.registros.m_peso.map(x => x.fecha), d.registros.m_presion.map(x => x.fecha), d.registros.m_colesterol.map(x => x.fecha), d.aero.map(x => x.fecha)).sort();
+    S2.creado = fechas[0] || ymd(new Date()); S2.ultimoRespaldo = 0;
+    d.importado = { de: 'Salud Activa', fecha: Date.now(), datos: r };   // copia íntegra de lo que se importó, por las dudas
+    return d;
+  }
   function importar(file) {
     const rd = new FileReader();
     rd.onload = () => {
       try {
         const r = JSON.parse(rd.result);
-        if (!esObjeto(r) || !esObjeto(r.days) || !Array.isArray(r.medidas)) throw new Error('formato');
-        if (!confirm('Esto reemplaza los datos actuales por los de la copia. ¿Continuar?')) return;
+        const deSA = esCopiaSaludActiva(r);
+        if (!deSA && (!esObjeto(r) || !esObjeto(r.days) || !Array.isArray(r.medidas))) throw new Error('formato');
+        if (!confirm(deSA ? 'Es una copia de Salud Activa. Se convierte a A Mi Ritmo (tu rutina, espalda, presión, peso, colesterol, saturación, actividad y alimentación) y reemplaza los datos actuales de A Mi Ritmo. Tu copia original queda guardada adentro. ¿Continuar?' : 'Esto reemplaza los datos actuales por los de la copia. ¿Continuar?')) return;
         try { const actual = localStorage.getItem(KEY); if (actual) guardarCopia(KEY + '_antes_importar', actual, true); } catch (e) { /* nada */ } // por si se importó el archivo equivocado
-        localStorage.setItem(KEY, JSON.stringify(r)); S = load(); save(); wiz = null; setupReminders(); changed(); toast('Copia importada');
+        localStorage.setItem(KEY, JSON.stringify(deSA ? desdeSaludActiva(r) : r)); S = load(); save(); wiz = null; if (deSA) tab = 'hoy'; setupReminders(); changed(); toast(deSA ? 'Copia de Salud Activa importada' : 'Copia importada');
       } catch (e) { toast('El archivo no es una copia válida'); }
     };
     rd.readAsText(file);
