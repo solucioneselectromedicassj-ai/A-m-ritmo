@@ -381,6 +381,7 @@
     return `<h2>${DIAS[now.getDay()]} ${now.getDate()} de ${MESES[now.getMonth()]}</h2>${tarjetaRespaldo()}${tarjetasAvisos()}
     ${tarjetaPendientes(false)}
     <div class="card"><h3>Resumen del día</h3>${filas.join('') || '<p class="muted">Todavía no activaste ningún módulo. Hacelo en Ajustes.</p>'}</div>
+    ${tarjetaAguaPend()}
     ${mod('agua') ? `<div class="card"><h3>Agua</h3><div class="row"><button class="ghost grow" data-a="agua-">− ${s.vaso} ml</button><button class="pri grow" data-a="agua+">+ vaso (${s.vaso} ml)</button></div></div>` : ''}
     ${mod('ejercicio') ? `<div class="card"><button class="pri" style="width:100%" data-a="tab" data-t="ejercicio">Ir a mi ejercicio</button></div>` : ''}
     ${AVISO_PIE}`;
@@ -499,7 +500,7 @@
   }
   function subAgua() {
     const d = peek(), s = S.settings;
-    return `<div class="card"><h3>Agua de hoy</h3>${meter('Tomado', d.agua || 0, s.metaAgua, 'ml')}
+    return `${tarjetaAguaPend()}<div class="card"><h3>Agua de hoy</h3>${meter('Tomado', d.agua || 0, s.metaAgua, 'ml')}
       <div class="row" style="margin-top:10px"><button class="ghost grow" data-a="agua-">− ${s.vaso} ml</button><button class="pri grow" data-a="agua+">+ vaso (${s.vaso} ml)</button></div>
       <small>${s.metaAgua ? '' : 'Todavía no definiste una meta: fijala en Ajustes con tu profesional. '}La cantidad de líquido que te conviene la define tu médico.</small></div>
     <div class="card"><h3>Últimos 7 días (ml)</h3>${barras(diasBarras(k => peek(k).agua || 0), s.metaAgua, 'Agua de los últimos 7 días')}</div>`;
@@ -909,7 +910,7 @@
       case 'med-conf': modalMedidaConf(medPorId(id)); break;
       case 'med-del': { const m = medPorId(id); if (m && confirm(`¿Quitar "${m.n}" y TODOS sus registros? No se puede deshacer (si dudás, exportá un respaldo antes).`)) { S.medidas = S.medidas.filter(x => x.id !== id); delete S.registros[id]; setupReminders(); changed(); } break; }
       // hábitos
-      case 'agua+': { const d = day(); d.agua = (d.agua || 0) + S.settings.vaso; changed(); break; }
+      case 'agua+': { const d = day(); d.agua = (d.agua || 0) + S.settings.vaso; changed(); sacarAvisoAgua(); break; }
       case 'agua-': { const d = day(); d.agua = Math.max(0, (d.agua || 0) - S.settings.vaso); changed(); break; }
       case 'motion': toggleMotion(); break;
       case 'sensor-sync': syncSensor(true); break;
@@ -1029,6 +1030,19 @@
 
   /* ---------- Recordatorios ---------- */
   let recT = null, lastRec = Date.now();
+  /* Agua: cada aviso de hoy que ya pasó es un vaso "por tomar"; cada vaso marcado descuenta uno (no desaparecen todos juntos). */
+  const minAviso = h => { const [a, b] = h.split(':').map(Number); return a * 60 + b; };
+  function pendientesAgua() {
+    const s = S.settings; if (!(mod('agua') && conRecordatorios() && s.recAgua && horaOk(s.aguaDesde) && horaOk(s.aguaHasta))) return 0;
+    const n = new Date(), ahoraMin = n.getHours() * 60 + n.getMinutes(); let pasados = 0;
+    for (let m = minAviso(s.aguaDesde), i = 0; m < minAviso(s.aguaHasta) && i < 60; m += Math.max(15, s.recMin), i++) if (m <= ahoraMin) pasados++;
+    return Math.max(0, pasados - Math.floor((peek().agua || 0) / s.vaso));
+  }
+  const tarjetaAguaPend = () => { const p = pendientesAgua(); return p ? `<div class="card warn"><b>💧 ${p === 1 ? 'Te quedó 1 vaso' : 'Te quedaron ' + p + ' vasos'} por tomar</b><p>Son los avisos de hoy que todavía no marcaste. Cada vez que marcás un vaso baja uno.</p></div>` : ''; };
+  async function sacarAvisoAgua() { // en Android, al marcar un vaso se saca de la barra UNA notificación de agua (la más vieja)
+    const N = plug('LocalNotifications'); if (!N || !N.getDeliveredNotifications) return;
+    try { const l = ((await N.getDeliveredNotifications()).notifications || []).filter(x => x.id >= 1000 && x.id < 2000).sort((a, b) => a.id - b.id); if (l.length) await N.removeDeliveredNotifications({ notifications: [{ id: l[0].id }] }); } catch (e) { /* nada */ }
+  }
   /* Lo que ya se cumplió hoy: su recordatorio de hoy no debe sonar (se mueve a la próxima vez). */
   const medidaHoy = m => (S.registros[m.id] || []).some(r => r && r.fecha === hoy());
   const aguaCumplida = () => !!(S.settings.metaAgua && (peek().agua || 0) >= S.settings.metaAgua);
@@ -1049,11 +1063,11 @@
       const s = S.settings, list = [], ahora = new Date();
       // Si ya se cumplió hoy, el aviso arranca mañana (o la semana que viene) y sigue repitiéndose igual.
       const proximo = (hh, mm, dias) => new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + dias, hh, mm, 0);
-      const diario = (id, hora, title, body, hecho) => { const [hh, mm] = hora.split(':').map(Number); list.push({ id, title, body, channelId: 'recordatorios', schedule: hecho ? { at: proximo(hh, mm, 1), repeats: true, every: 'day', allowWhileIdle: true } : { on: { hour: hh, minute: mm }, allowWhileIdle: true } }); };
+      const diario = (id, hora, title, body, hecho, extra) => { const [hh, mm] = hora.split(':').map(Number); list.push({ id, title, body, channelId: 'recordatorios', ...extra, schedule: hecho ? { at: proximo(hh, mm, 1), repeats: true, every: 'day', allowWhileIdle: true } : { on: { hour: hh, minute: mm }, allowWhileIdle: true } }); };
       if (conRecordatorios()) {
         if (mod('agua') && s.recAgua && horaOk(s.aguaDesde) && horaOk(s.aguaHasta)) {
           const mn = h => { const [a, b] = h.split(':').map(Number); return a * 60 + b; }; let i = 0;
-          for (let m = mn(s.aguaDesde); m < mn(s.aguaHasta) && i < 60; m += Math.max(15, s.recMin)) { diario(1000 + i++, `${pad(Math.floor(m / 60))}:${pad(m % 60)}`, '💧 Hora de tomar agua', `Vaso de ${s.vaso} ml`, aguaCumplida()); }
+          for (let m = mn(s.aguaDesde); m < mn(s.aguaHasta) && i < 60; m += Math.max(15, s.recMin)) { diario(1000 + i++, `${pad(Math.floor(m / 60))}:${pad(m % 60)}`, '💧 Hora de tomar agua', `Vaso de ${s.vaso} ml (aviso de las ${pad(Math.floor(m / 60))}:${pad(m % 60)})`, aguaCumplida(), { autoCancel: false }); }
         }
         if (mod('medidas')) S.medidas.slice(0, 50).forEach((m, i) => { if (m.recordarHora && horaOk(m.recordarHora)) diario(2000 + i, m.recordarHora, `${m.n}: hora de medir`, 'Anotá el valor en A Mi Ritmo.', medidaHoy(m)); });
         if (mod('ejercicio')) S.sesiones.slice(0, 80).forEach((se, i) => { if (se.hora && horaOk(se.hora)) (se.dias || []).forEach(d => { const [hh, mm] = se.hora.split(':').map(Number); list.push({ id: 3000 + i * 10 + d, title: `🏋️ ${se.n}`, body: 'Es hora de tu rutina. Después marcá lo que hiciste.', channelId: 'recordatorios', schedule: d === ahora.getDay() && sesionCumplidaHoy(se) ? { at: proximo(hh, mm, 7), repeats: true, every: 'week', allowWhileIdle: true } : { on: { weekday: d + 1, hour: hh, minute: mm }, allowWhileIdle: true } }); }); });

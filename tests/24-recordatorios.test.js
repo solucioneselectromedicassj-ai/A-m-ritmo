@@ -131,3 +131,32 @@ test('recordatorios: al otro día vuelve todo al horario normal', async ({ abrir
   await page.waitForTimeout(300);
   assert.ok((await prog(page)).find(x => x.id === 3003).schedule.on);
 });
+
+const aguaPlan = (extra = {}) => plan('recordatorios', Object.assign({ settings: { creado: '2026-10-01', recAgua: true, recMin: 120, aguaDesde: '08:00', aguaHasta: '14:00', vaso: 250 }, modulos: { agua: true } }, extra));
+
+test('agua: los avisos que pasaron quedan como vasos pendientes y cada vaso marcado descuenta uno', async ({ abrir }) => {
+  // 12:00 → pasaron los avisos de las 8, 10 y 12 = 3 vasos
+  const { page } = await abrir({ ls: aguaPlan() });
+  assert.match(await texto(page), /Te quedaron 3 vasos por tomar/);
+  await page.click('[data-a="agua+"]'); assert.match(await texto(page), /Te quedaron 2 vasos por tomar/);
+  await page.click('[data-a="agua+"]'); assert.match(await texto(page), /Te quedó 1 vaso por tomar/);
+  await page.click('[data-a="agua+"]'); assert.doesNotMatch(await texto(page), /por tomar/);
+  await ir(page, 'habitos'); assert.doesNotMatch(await texto(page), /por tomar/);
+});
+
+test('agua: sin recordatorios (modo solo registro) no hay vasos pendientes', async ({ abrir }) => {
+  const { page } = await abrir({ ls: base({ modo: 'registro', modulos: { agua: true }, settings: { creado: '2026-10-01', recAgua: true, aguaDesde: '08:00', aguaHasta: '14:00', recMin: 120, vaso: 250 } }) });
+  assert.doesNotMatch(await texto(page), /por tomar/);
+});
+
+test('agua (Android): los avisos no se borran al tocarlos y al marcar un vaso se saca uno solo', async ({ abrir }) => {
+  const nat = { LocalNotifications: { getPending: '() => ({notifications:[]})', getDeliveredNotifications: '() => ({notifications:[{id:1001},{id:1000},{id:1002}]})', removeDeliveredNotifications: '() => ({})' } };
+  const { page } = await abrir({ ls: aguaPlan(), native: nat });
+  await page.waitForTimeout(300);
+  const n = (await programadas(page)).filter(x => x.id >= 1000 && x.id < 2000);
+  assert.ok(n.length === 3 && n.every(x => x.autoCancel === false), 'tocar un aviso no hace desaparecer a los demás');
+  assert.deepStrictEqual(n.map(x => x.body), ['Vaso de 250 ml (aviso de las 08:00)', 'Vaso de 250 ml (aviso de las 10:00)', 'Vaso de 250 ml (aviso de las 12:00)'], 'cada aviso se distingue por su hora');
+  await page.click('[data-a="agua+"]'); await page.waitForTimeout(250);
+  const ll = await llamadas(page), rm = ll.filter(x => x[1] === 'removeDeliveredNotifications');
+  assert.strictEqual(rm.length, 1); assert.deepStrictEqual(JSON.parse(rm[0][2])[0].notifications, [{ id: 1000 }], 'se saca solo el más viejo');
+});
