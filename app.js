@@ -324,7 +324,7 @@
   const limpiar = t => String(t || '').replace(/\s+/g, ' ').trim().slice(0, 80);
 
   /* ---------- Vistas ---------- */
-  let tab = 'hoy', subH = null, subM = null, wiz = null;
+  let tab = 'hoy', subH = null, subM = null, subEv = 'semana', wiz = null;
   const selCampo = {};
   const tabsActivas = () => {
     const t = [['hoy', '🏠', 'Hoy']];
@@ -416,11 +416,35 @@
       <div class="item-actions" style="margin-top:6px">${c >= meta && meta > 0 ? '' : `<button class="pri mini" data-a="ej-ok" data-id="${id}">✅ Lo hice</button>`}<button class="ghost mini" data-a="mol" data-id="${id}">${mol ? 'Quitar marca' : 'Me molestó'}</button>${no ? `<button class="ghost mini" data-a="ej-no-x" data-id="${id}">Deshacer "hoy no"</button>` : (c >= meta && meta > 0 ? '' : `<button class="ghost mini" data-a="ej-no" data-id="${id}">Hoy no</button>`)}</div></div>`;
   }
   function sesionBloque(s, f) {
-    const k = ymd(f), ejs = ejDeSesion(s), hechos = ejs.filter(e => progEj(e, k) >= metaEj(e)).length, omit = (peek(k).omit || {})[s.id];
+    const k = ymd(f), ejs = ejDeSesion(s), omitE = peek(k).omitEj || {}, omit = (peek(k).omit || {})[s.id];
+    const hechosL = ejs.filter(e => progEj(e, k) >= metaEj(e)), saltL = ejs.filter(e => progEj(e, k) < metaEj(e) && omitE[e.id]), pendL = ejs.filter(e => !hechosL.includes(e) && !saltL.includes(e));
+    // Lo que ya está hecho (o salteado) se compacta y queda abajo: arriba solo lo que falta.
+    const compacto = (e, marca, txt) => `<details class="item compacto ${marca === '✅' ? 'done' : ''}"><summary>${marca} ${esc(e.n)}<small>${txt}</small></summary>${ejCard(e, k)}</details>`;
     return `<div class="card ${sesionHecha(s, k) ? 'ok' : ''}"><h3>${esc(s.n)}${s.hora ? ' · ' + esc(s.hora) : ''}</h3>
-      <p>${hechos} de ${ejs.length} ejercicios completos.${omit ? ' <span class="warnTxt">Marcaste que hoy no pudiste.</span>' : ''}</p>
+      <p>${hechosL.length} de ${ejs.length} ejercicios completos.${omit ? ' <span class="warnTxt">Marcaste que hoy no pudiste.</span>' : ''}${ejs.length && sesionHecha(s, k) ? ' <span class="okTxt">¡Rutina completa! 🎉</span>' : ''}</p>
       <div class="row"><button class="pri grow" data-a="ses-todo" data-id="${esc(s.id)}">✅ Lo hice todo</button><button class="ghost grow" data-a="ses-no" data-id="${esc(s.id)}">❌ No pude hoy</button></div></div>
-      ${ejs.map(e => ejCard(e, k)).join('') || '<p class="muted">Esta rutina todavía no tiene ejercicios. Agregalos en Ajustes.</p>'}`;
+      ${pendL.map(e => ejCard(e, k)).join('')}
+      ${hechosL.length || saltL.length ? `<h3 class="sub">${pendL.length ? 'Ya resuelto hoy' : 'Hecho hoy'}</h3>${hechosL.map(e => compacto(e, '✅', esc(dosisEj(e)))).join('')}${saltL.map(e => compacto(e, '⏭', 'hoy no')).join('')}` : ''}
+      ${ejs.length ? '' : '<p class="muted">Esta rutina todavía no tiene ejercicios. Agregalos en Ajustes.</p>'}`;
+  }
+  /* Evolución: % de las rutinas programadas que se completaron, por día (semana), por semana (mes, trimestre) o por mes (año). */
+  function evolucion(per) {
+    const hoyD = new Date(), desdeApp = S.settings.creado ? fechaLocal(S.settings.creado) : sumarDias(hoyD, -400);
+    const medir = (ini, fin) => { let prog = 0, hechas = 0, dias = 0; for (let d = ini; d <= fin; d = sumarDias(d, 1)) { if (d < sumarDias(desdeApp, 0) && ymd(d) < ymd(desdeApp)) continue; let alguna = false; sesionesDelDia(d).forEach(se => { if (ejDeSesion(se).length) { prog++; if (sesionHecha(se, ymd(d))) { hechas++; alguna = true; } } }); if (alguna) dias++; } return { prog, hechas, dias }; };
+    const items = []; let tot = { prog: 0, hechas: 0, dias: 0 };
+    const sumar = r => { tot.prog += r.prog; tot.hechas += r.hechas; tot.dias += r.dias; };
+    const pct = r => (r.prog ? Math.round(r.hechas / r.prog * 100) : 0);
+    if (per === 'semana') for (let i = 6; i >= 0; i--) { const d = sumarDias(hoyD, -i), r = medir(d, d); sumar(r); items.push({ l: DIAS[d.getDay()].slice(0, 3), v: pct(r) }); }
+    else if (per === 'mes' || per === 'trimestre') for (let i = (per === 'mes' ? 4 : 13) - 1; i >= 0; i--) { const fin = sumarDias(hoyD, -7 * i), ini = sumarDias(fin, -6), r = medir(ini, fin); sumar(r); items.push({ l: `${ini.getDate()}/${ini.getMonth() + 1}`, v: pct(r) }); }
+    else for (let i = 11; i >= 0; i--) { const ini = new Date(hoyD.getFullYear(), hoyD.getMonth() - i, 1), fin = i === 0 ? hoyD : new Date(ini.getFullYear(), ini.getMonth() + 1, 0), r = medir(ini, fin); sumar(r); items.push({ l: MESES[ini.getMonth()].slice(0, 3), v: pct(r) }); }
+    return { items, tot, pct: pct(tot) };
+  }
+  function tarjetaEvolucion() {
+    if (!S.sesiones.length) return '';
+    const per = ['semana', 'mes', 'trimestre', 'anio'].includes(subEv) ? subEv : 'semana', ev = evolucion(per);
+    const txt = { semana: 'los últimos 7 días', mes: 'las últimas 4 semanas', trimestre: 'las últimas 13 semanas', anio: 'los últimos 12 meses' }[per];
+    return `<div class="card"><h3>Tu evolución</h3>${segBtns([['semana', 'Semana'], ['mes', 'Mes'], ['trimestre', 'Trimestre'], ['anio', 'Año']], per, 'sub-ev')}
+      ${ev.tot.prog ? `<p><b>${ev.tot.hechas} de ${ev.tot.prog}</b> rutinas completas en ${txt} (${ev.pct} %). Días con alguna rutina completa: ${ev.tot.dias}.</p>${barras(ev.items, 100, 'Porcentaje de rutinas completas, ' + txt)}<small>Cada barra es el % de las rutinas programadas que completaste${per === 'semana' ? ' ese día' : per === 'anio' ? ' ese mes' : ' esa semana (empieza el día indicado)'}.</small>` : `<p class="muted">Todavía no hay rutinas programadas en ${txt}.</p>`}</div>`;
   }
   function viewEjercicio() {
     const now = new Date(), hoyS = sesionesDelDia(now), otras = S.sesiones.filter(s => !hoyS.includes(s));
@@ -430,6 +454,7 @@
     ${tarjetaPendientes(true)}
     ${hoyS.length ? hoyS.map(s => sesionBloque(s, now)).join('') : '<div class="card"><b>Hoy no tenés rutina programada.</b></div>'}
     ${otras.length ? `<details class="card"><summary>Otras rutinas (${otras.length})</summary>${otras.map(s => `<p class="muted">${esc(s.n)} · ${esc(fmtDiasSes(s.dias || []))}</p>${ejDeSesion(s).map(e => ejCard(e)).join('')}`).join('')}</details>` : ''}
+    ${tarjetaEvolucion()}
     <div class="card"><button class="ghost" style="width:100%" data-a="tab" data-t="ajustes">Editar mi plan de ejercicio</button></div>${AVISO_PIE}`;
   }
 
@@ -881,6 +906,7 @@
     const a = b.dataset.a, id = b.dataset.id, k = b.dataset.k;
     switch (a) {
       case 'tab': go(b.dataset.t); break;
+      case 'sub-ev': subEv = b.dataset.v; render(); break;
       case 'sub-h': subH = b.dataset.v; render(); break;
       case 'sub-m': subM = b.dataset.v; render(); break;
       case 'sub-c': selCampo[subM] = b.dataset.v; render(); break;

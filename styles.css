@@ -179,3 +179,11 @@ details.card summary{min-height:44px;display:flex;align-items:center;cursor:poin
 .color.on{border-color:var(--pri);background:var(--soft);font-weight:600}
 .sw{display:inline-block;width:20px;height:20px;border-radius:50%}
 .sw-azul{background:#1d4ed8}.sw-verde{background:#0f766e}.sw-violeta{background:#6d28d9}.sw-naranja{background:#c2410c}.sw-rosa{background:#be185d}.sw-gris{background:#374151}
+
+/* ejercicios ya resueltos (compactos) y subtítulo */
+details.compacto{padding:0 10px}
+details.compacto>summary{min-height:44px;display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;list-style:none}
+details.compacto>summary::-webkit-details-marker{display:none}
+details.compacto>summary small{margin-left:auto;font-weight:400}
+details.compacto[open]>summary{border-bottom:1px solid var(--line);margin-bottom:6px}
+h3.sub{margin:14px 0 6px;font-size:.92rem;color:var(--muted)}

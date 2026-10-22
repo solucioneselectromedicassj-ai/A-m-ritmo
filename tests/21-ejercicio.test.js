@@ -8,6 +8,7 @@ const plan = (extra = {}) => base(Object.assign({
   ejercicios: [EJ('e1', 'Giros', 'reps', { meta: 30, fig: 'giros' }), EJ('e2', 'Puente', 'series', { fig: 'puente' }), EJ('e3', 'Plancha', 'tiempo'), EJ('e4', 'Elongar', 'reps')],
   sesiones: [{ id: 's1', n: 'Mañana', dias: [1, 3, 5], hora: '08:00', ej: ['e1', 'e2', 'e3'] }, { id: 's2', n: 'Tarde', dias: [2], hora: '', ej: ['e4'] }]
 }, extra));
+const abrirR = page => page.evaluate(() => document.querySelectorAll('details.compacto').forEach(d => { d.open = true; }));   // los ejercicios ya resueltos están plegados
 const llenar = async (page, vals) => { for (const [k, v] of Object.entries(vals)) { const el = page.locator(`#modal [name="${k}"]`); if (v === null) await el.fill(''); else await el.fill(String(v)); } };
 
 test('ejercicio: hoy se ven solo las rutinas del día; las otras quedan aparte', async ({ abrir }) => {
@@ -29,7 +30,7 @@ test('ejercicio: repeticiones sin tope, +5, número exacto y restar', async ({ a
   let S = await estado(page); assert.strictEqual(S.days['2026-10-19'].ej.e1, 6);
   await page.click('[data-a=ej-set][data-id=e1]');
   S = await estado(page); assert.strictEqual(S.days['2026-10-19'].ej.e1, 45, 'se pasa de la meta de 30');
-  assert.match(await texto(page), /45\/30/);
+  await abrirR(page); assert.match(await texto(page), /45\/30/);
   await page.click('[data-a="ej-"][data-id=e1]'); S = await estado(page); assert.strictEqual(S.days['2026-10-19'].ej.e1, 44);
 });
 
@@ -42,9 +43,9 @@ test('ejercicio: series con casilleros, descanso entre series y sin descanso en 
   await page.click('[data-a=timer-stop]');
   await page.click('[data-a="ej+"][data-id=e2]');
   assert.ok(await page.locator('#timer').isHidden(), 'la última serie no dispara descanso');
-  await page.click('[data-a="ej+"][data-id=e2]');                                  // una de más: se permite
+  await abrirR(page); await page.click('[data-a="ej+"][data-id=e2]');            // una de más: se permite
   assert.strictEqual((await estado(page)).days['2026-10-19'].ej.e2, 3);
-  assert.match(await texto(page), /3 series hechas/);
+  await abrirR(page); assert.match(await texto(page), /3 series hechas/);
 });
 
 test('ejercicio: "Lo hice todo", "No pude hoy" y "Me molestó"', async ({ abrir }) => {
@@ -57,9 +58,9 @@ test('ejercicio: "Lo hice todo", "No pude hoy" y "Me molestó"', async ({ abrir 
   assert.deepStrictEqual([S.days['2026-10-19'].ej.e1, S.days['2026-10-19'].ej.e2, S.days['2026-10-19'].ej.e3], [30, 2, 2]);
   assert.strictEqual(S.days['2026-10-19'].omit.s1, undefined, 'al completarla se limpia el "no pude"');
   assert.match(await texto(page), /3 de 3 ejercicios completos/);
-  await page.click('[data-a=mol][data-id=e1]');
+  await abrirR(page); await page.click('[data-a=mol][data-id=e1]');
   assert.strictEqual((await estado(page)).molestias.e1, true);
-  assert.match(await texto(page), /Marcado como molesto/);
+  await abrirR(page); assert.match(await texto(page), /Marcado como molesto/);
   await page.click('[data-a=mol][data-id=e1]'); assert.strictEqual((await estado(page)).molestias.e1, undefined);
 });
 
@@ -152,7 +153,7 @@ test('ejercicio por ítem: "Hoy no" lo anota, mañana aparece como pendiente (si
   let a = await abrir({ ls: base(plan) });
   await ir(a.page, 'ejercicio'); await a.page.click('[data-a=ej-no][data-id=e1]');
   assert.deepStrictEqual((await estado(a.page)).days['2026-10-19'].omitEj, { e1: true });
-  assert.match(await texto(a.page), /Hoy no lo hacés: mañana te lo muestro como pendiente/);
+  await abrirR(a.page); assert.match(await texto(a.page), /Hoy no lo hacés: mañana te lo muestro como pendiente/);
   await a.page.click('[data-a=ej-no-x][data-id=e1]'); assert.deepStrictEqual((await estado(a.page)).days['2026-10-19'].omitEj, {});
   // mañana (martes 20): ayer salteó Giros (está en la rutina de hoy) y Puente de una rutina completa marcada "No pude hoy"
   const ls = base(Object.assign({}, plan, { days: { '2026-10-19': { omitEj: { e1: true }, omit: { s2: true } } } }));
@@ -173,10 +174,46 @@ test('ejercicio por ítem: "Lo hice" completa la dosis y saca la marca "hoy no"'
   const { page } = await abrir({ ls: plan() });
   await ir(page, 'ejercicio');
   await page.click('[data-a=ej-no][data-id=e1]');
-  await page.click('[data-a=ej-ok][data-id=e1]');
+  await abrirR(page); await page.click('[data-a=ej-ok][data-id=e1]');
   let S = await estado(page);
   assert.strictEqual(S.days['2026-10-19'].ej.e1, 30); assert.deepStrictEqual(S.days['2026-10-19'].omitEj, {});
   assert.strictEqual(await page.locator('[data-a=ej-ok][data-id=e1]').count(), 0, 'ya hecho: no se ofrece de nuevo');
   await page.click('[data-a=ej-ok][data-id=e2]');   // series
   S = await estado(page); assert.strictEqual(S.days['2026-10-19'].ej.e2, 2);
+});
+
+test('ejercicio: lo completado se pliega y quedan a la vista solo los pendientes', async ({ abrir }) => {
+  const { page } = await abrir({ ls: plan({ days: { '2026-10-19': { ej: { e1: 30 }, omitEj: { e3: true } } } }) });
+  await ir(page, 'ejercicio');
+  const visibles = await page.$$eval('#view .item:not(.compacto)', xs => xs.filter(x => !x.closest('details:not([open])')).map(x => x.querySelector('b').textContent));
+  assert.deepStrictEqual(visibles, ['Puente'], 'solo el que falta, con su figura y sus botones');
+  assert.strictEqual(await page.locator('#view details.compacto').count(), 2);
+  assert.match(await texto(page), /Ya resuelto hoy/); assert.match(await texto(page), /✅ Giros/); assert.match(await texto(page), /⏭ Plancha/);
+  assert.strictEqual(await page.locator('#view details.compacto[open]').count(), 0, 'plegados por defecto');
+  await page.click('[data-a="ej+"][data-id=e2]'); await page.click('[data-a="ej+"][data-id=e2]');   // completa Puente (2 series)
+  await page.click('[data-a=ej-no-x][data-id=e3]').catch(() => { });
+  await abrirR(page); await page.click('[data-a=ej-no-x][data-id=e3]'); await page.click('[data-a=ej-ok][data-id=e3]').catch(() => { });
+  assert.match(await texto(page), /3 de 3 ejercicios completos|2 de 3 ejercicios completos/);
+});
+
+test('evolución: semana, mes, trimestre y año con el % de rutinas completas', async ({ abrir }) => {
+  // Rutina diaria; creada el 1/10. Hecha el 17, 18 y 19 (3 de 19 programadas desde el 1/10).
+  const dias = {}; ['2026-10-17', '2026-10-18', '2026-10-19'].forEach(k => { dias[k] = { ej: { e1: 30, e2: 2, e3: 2 } }; });
+  const ls = plan({ sesiones: [{ id: 's1', n: 'Diaria', dias: [0, 1, 2, 3, 4, 5, 6], hora: '', ej: ['e1', 'e2', 'e3'] }], days: dias });
+  const { page, errores } = await abrir({ ls });
+  await ir(page, 'ejercicio');
+  let t = await texto(page); assert.match(t, /Tu evolución/); assert.match(t, /3 de 7 rutinas completas en los últimos 7 días \(43 %\)\. Días con alguna rutina completa: 3/);
+  assert.strictEqual(await page.locator('#view svg[aria-label^="Porcentaje de rutinas completas"]').count(), 1);
+  for (const [v, rx, barras] of [['mes', /3 de 19 rutinas completas en las últimas 4 semanas \(16 %\)/, 4], ['trimestre', /3 de 19 rutinas completas en las últimas 13 semanas/, 13], ['anio', /3 de 19 rutinas completas en los últimos 12 meses/, 12]]) {
+    await page.click(`[data-a=sub-ev][data-v=${v}]`);
+    assert.match(await texto(page), rx, v); assert.strictEqual(await page.locator('#view svg.chart rect.barra').count(), barras, v);
+  }
+  assert.deepStrictEqual(errores, []);
+});
+
+test('evolución: sin rutinas programadas no muestra gráfico y no rompe', async ({ abrir }) => {
+  const { page, errores } = await abrir({ ls: plan({ sesiones: [{ id: 's2', n: 'Solo martes', dias: [2], hora: '', ej: ['e4'] }], settings: { creado: '2026-10-19' } }) });
+  await ir(page, 'ejercicio'); await page.click('[data-a=sub-ev][data-v=mes]');
+  assert.deepStrictEqual(errores, []);
+  const v = await page.locator('#view svg[aria-label^="Porcentaje"]').count(); assert.ok(v <= 1);
 });
