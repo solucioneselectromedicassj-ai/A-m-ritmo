@@ -55,7 +55,7 @@ android/        proyecto Capacitor (appId ar.amiritmo.app), StepCounterPlugin + 
 - Respaldo: exportar (APK: caché + compartir; web: descarga), copiar, importar, recordatorio en Hoy (hay registros + ≥3 días de uso + ≥7 días sin respaldo), "Borrar todo" con oferta de exportar y doble confirmación.
 
 ## Recordatorios (Android)
-`setupReminders()` / `scheduleNative` solo programan si el modo no es `registro`. Ids: 1000+ agua, 2000+i mediciones con hora, 3000+i*10+día rutinas con hora (weekday = día+1), 3900 aviso de "mañana" tras "No pude hoy" (se preserva al reprogramar). Sin permiso de notificaciones se avisa y no se programa. En la web solo hay recordatorio de agua con la app abierta.
+`setupReminders()` / `scheduleNative` solo programan si el modo no es `registro`. Ids: 1000+ agua, 2000+i mediciones con hora, 3000+i*10+día rutinas con hora (weekday = día+1), 3900 aviso de "mañana" tras "No pude hoy" (se preserva al reprogramar). Lo que ya se cumplió hoy (rutina hecha u omitida, medición anotada, agua en la meta) **no vuelve a avisar hoy**: su aviso pasa a `at` = próxima vez con `repeats`/`every` (`reprogramarSiCambio` re-agenda al cambiar el estado). Sin permiso de notificaciones se avisa y no se programa. En la web solo hay recordatorio de agua con la app abierta.
 
 ## Cómo correrlo y probarlo
 ```

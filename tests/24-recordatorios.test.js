@@ -93,3 +93,41 @@ test('"Hoy no" en un ejercicio agenda el aviso de mañana con su nombre (solo co
   await b.page.waitForTimeout(200); await ir(b.page, 'ejercicio'); await b.page.click('[data-a=ej-no][data-id=e1]'); await b.page.waitForTimeout(200);
   assert.deepStrictEqual(await programadas(b.page), []);
 });
+
+// Lo ya cumplido hoy no vuelve a sonar hoy: el aviso se corre a la próxima vez y sigue repitiéndose.
+const prog = async page => { const ll = await llamadas(page); const s = ll.filter(x => x[1] === 'schedule').pop(); return s ? JSON.parse(s[2])[0].notifications : []; };
+
+test('recordatorios: rutina ya hecha hoy → el aviso de hoy no suena (pasa a la semana próxima, repetido)', async ({ abrir }) => {
+  const hecho = plan('recordatorios', { days: { '2026-10-19': { ej: { e1: 10 } } } });   // lunes: e1 cumple la meta (10)
+  const { page } = await abrir({ ls: hecho, native: nativo() });
+  await page.waitForTimeout(300);
+  const n = (await prog(page)).find(x => x.id === 3001);   // lunes = 1
+  assert.ok(n.schedule.at && !n.schedule.on, 'ya no usa el horario fijo de hoy');
+  assert.strictEqual(n.schedule.every, 'week'); assert.strictEqual(n.schedule.repeats, true);
+  const f = new Date(n.schedule.at); assert.deepStrictEqual([f.getFullYear(), f.getMonth(), f.getDate(), f.getHours(), f.getMinutes()], [2026, 9, 26, 7, 30]);
+  assert.ok((await prog(page)).find(x => x.id === 3003).schedule.on, 'los otros días siguen normales');
+});
+
+test('recordatorios: si lo marcás hecho durante el día, se reprograma solo', async ({ abrir }) => {
+  const { page } = await abrir({ ls: plan('recordatorios'), native: nativo() });
+  await page.waitForTimeout(300);
+  assert.ok((await prog(page)).find(x => x.id === 3001).schedule.on);
+  await ir(page, 'ejercicio'); await page.click('[data-a=ses-todo][data-id=s1]'); await page.waitForTimeout(1900);
+  assert.ok((await prog(page)).find(x => x.id === 3001).schedule.at, 'después de "Lo hice todo" el aviso de hoy ya no suena');
+});
+
+test('recordatorios: medición ya anotada hoy y agua en la meta no vuelven a avisar hoy', async ({ abrir }) => {
+  const ls = plan('recordatorios', { settings: { creado: '2026-10-01', recAgua: true, recMin: 120, aguaDesde: '08:00', aguaHasta: '14:00', vaso: 250, metaAgua: 2000 }, registros: { m_presion: [{ fecha: '2026-10-19', sis: 120, dia: 80 }] }, days: { '2026-10-19': { agua: 2000 } } });
+  const { page } = await abrir({ ls, native: nativo() });
+  await page.waitForTimeout(300);
+  const n = await prog(page);
+  const manana = x => x.schedule.at && x.schedule.every === 'day' && new Date(x.schedule.at).getDate() === 20;
+  assert.ok(manana(n.find(x => x.id === 2000)), 'presión'); assert.ok(n.filter(x => x.id >= 1000 && x.id < 2000).every(manana), 'agua');
+});
+
+test('recordatorios: al otro día vuelve todo al horario normal', async ({ abrir }) => {
+  const ls = plan('recordatorios', { days: { '2026-10-19': { ej: { e1: 10 } } } });
+  const { page } = await abrir({ ls, native: nativo(), fecha: '2026-10-20T12:00:00' });
+  await page.waitForTimeout(300);
+  assert.ok((await prog(page)).find(x => x.id === 3003).schedule.on);
+});

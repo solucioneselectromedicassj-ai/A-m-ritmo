@@ -348,7 +348,7 @@
     const n = new Date(); $('#topDate').textContent = `${n.getDate()}/${n.getMonth() + 1}`;
   }
   function go(t) { tab = t; render(); window.scrollTo(0, 0); }
-  const changed = () => { save(); render(); };
+  const changed = () => { save(); render(); if (NATIVE) reprogramarSiCambio(); };
   const AVISO_PIE = '<p class="foot">Ayuda personal para llevar tus hábitos: no reemplaza las indicaciones de tu médico ni de otros profesionales de la salud. Si te sentís mal, buscá atención médica.</p>';
 
   function tarjetaRespaldo() {
@@ -1029,20 +1029,34 @@
 
   /* ---------- Recordatorios ---------- */
   let recT = null, lastRec = Date.now();
+  /* Lo que ya se cumplió hoy: su recordatorio de hoy no debe sonar (se mueve a la próxima vez). */
+  const medidaHoy = m => (S.registros[m.id] || []).some(r => r && r.fecha === hoy());
+  const aguaCumplida = () => !!(S.settings.metaAgua && (peek().agua || 0) >= S.settings.metaAgua);
+  const sesionCumplidaHoy = se => sesionHecha(se, hoy()) || !!(peek().omit || {})[se.id] || (ejDeSesion(se).length > 0 && ejDeSesion(se).every(e => progEj(e) >= metaEj(e) || (peek().omitEj || {})[e.id]));
+  const firmaCumplidos = () => [aguaCumplida() ? 'A' : '-', S.medidas.map(m => (medidaHoy(m) ? '1' : '0')).join(''), S.sesiones.map(se => (sesionCumplidaHoy(se) ? '1' : '0')).join(''), hoy()].join('|');
+  let firmaProg = null, progT = null;
+  function reprogramarSiCambio() {
+    if (!conRecordatorios() || firmaCumplidos() === firmaProg) return;
+    clearTimeout(progT); progT = setTimeout(scheduleNative, 1500);
+  }
   async function scheduleNative() {
     const N = plug('LocalNotifications'); if (!N) return;
     try {
       const pend = await N.getPending();
       const viejas = pend.notifications.filter(n => n.id !== 3900); // 3900 = aviso de "mañana" (se conserva)
       if (viejas.length) await N.cancel({ notifications: viejas.map(n => ({ id: n.id })) });
-      const s = S.settings, list = [], diario = (id, hora, title, body) => { const [hh, mm] = hora.split(':').map(Number); list.push({ id, title, body, channelId: 'recordatorios', schedule: { on: { hour: hh, minute: mm }, allowWhileIdle: true } }); };
+      firmaProg = firmaCumplidos();
+      const s = S.settings, list = [], ahora = new Date();
+      // Si ya se cumplió hoy, el aviso arranca mañana (o la semana que viene) y sigue repitiéndose igual.
+      const proximo = (hh, mm, dias) => new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + dias, hh, mm, 0);
+      const diario = (id, hora, title, body, hecho) => { const [hh, mm] = hora.split(':').map(Number); list.push({ id, title, body, channelId: 'recordatorios', schedule: hecho ? { at: proximo(hh, mm, 1), repeats: true, every: 'day', allowWhileIdle: true } : { on: { hour: hh, minute: mm }, allowWhileIdle: true } }); };
       if (conRecordatorios()) {
         if (mod('agua') && s.recAgua && horaOk(s.aguaDesde) && horaOk(s.aguaHasta)) {
           const mn = h => { const [a, b] = h.split(':').map(Number); return a * 60 + b; }; let i = 0;
-          for (let m = mn(s.aguaDesde); m < mn(s.aguaHasta) && i < 60; m += Math.max(15, s.recMin)) { diario(1000 + i++, `${pad(Math.floor(m / 60))}:${pad(m % 60)}`, '💧 Hora de tomar agua', `Vaso de ${s.vaso} ml`); }
+          for (let m = mn(s.aguaDesde); m < mn(s.aguaHasta) && i < 60; m += Math.max(15, s.recMin)) { diario(1000 + i++, `${pad(Math.floor(m / 60))}:${pad(m % 60)}`, '💧 Hora de tomar agua', `Vaso de ${s.vaso} ml`, aguaCumplida()); }
         }
-        if (mod('medidas')) S.medidas.slice(0, 50).forEach((m, i) => { if (m.recordarHora && horaOk(m.recordarHora)) diario(2000 + i, m.recordarHora, `${m.n}: hora de medir`, 'Anotá el valor en A Mi Ritmo.'); });
-        if (mod('ejercicio')) S.sesiones.slice(0, 80).forEach((se, i) => { if (se.hora && horaOk(se.hora)) (se.dias || []).forEach(d => { const [hh, mm] = se.hora.split(':').map(Number); list.push({ id: 3000 + i * 10 + d, title: `🏋️ ${se.n}`, body: 'Es hora de tu rutina. Después marcá lo que hiciste.', channelId: 'recordatorios', schedule: { on: { weekday: d + 1, hour: hh, minute: mm }, allowWhileIdle: true } }); }); });
+        if (mod('medidas')) S.medidas.slice(0, 50).forEach((m, i) => { if (m.recordarHora && horaOk(m.recordarHora)) diario(2000 + i, m.recordarHora, `${m.n}: hora de medir`, 'Anotá el valor en A Mi Ritmo.', medidaHoy(m)); });
+        if (mod('ejercicio')) S.sesiones.slice(0, 80).forEach((se, i) => { if (se.hora && horaOk(se.hora)) (se.dias || []).forEach(d => { const [hh, mm] = se.hora.split(':').map(Number); list.push({ id: 3000 + i * 10 + d, title: `🏋️ ${se.n}`, body: 'Es hora de tu rutina. Después marcá lo que hiciste.', channelId: 'recordatorios', schedule: d === ahora.getDay() && sesionCumplidaHoy(se) ? { at: proximo(hh, mm, 7), repeats: true, every: 'week', allowWhileIdle: true } : { on: { weekday: d + 1, hour: hh, minute: mm }, allowWhileIdle: true } }); }); });
       }
       if (!list.length) return;
       let perm = await N.checkPermissions();
