@@ -66,6 +66,18 @@
     { fig: 'lateral', n: 'Plancha lateral (rodillas apoyadas)', tipo: 'tiempo', series: 2, seg: 15, nota: 'Cuerpo en línea. Respirá, no aguantes el aire.' },
     { fig: 'plancha', n: 'Plancha corta', tipo: 'tiempo', series: 2, seg: 15, nota: 'Podés apoyar las rodillas.' }
   ];
+  const GRUPOS_BIB = { general: { n: 'Rutina general', dias: [0, 1, 2, 3, 4, 5, 6], titulo: 'De pie' }, espalda: { n: 'Espalda y core', dias: [1, 3, 5], titulo: 'Espalda y core' } };
+  const grupoBib = b => (['gato', 'bird', 'deadbug', 'puente', 'lateral', 'plancha'].includes(b.fig) ? 'espalda' : 'general');
+  // Cada grupo va a su propia rutina (con sus días y horario): se reutiliza la que ya tenga ese nombre.
+  function rutinaDeGrupo(g) {
+    const G = GRUPOS_BIB[g]; let se = S.sesiones.find(x => x.n === G.n);
+    if (!se) { se = { id: uid('s'), n: G.n, dias: G.dias.slice(), hora: '', ej: [] }; S.sesiones.push(se); }
+    return se;
+  }
+  // ¿Esta rutina mezcla ejercicios de espalda/core (de la biblioteca) con otros? Se ofrece separarlos para elegir sus propios días y horario.
+  const esEjEspalda = e => !!e && grupoBib({ fig: e.fig }) === 'espalda';
+  const mezclaEspalda = se => { const l = ejDeSesion(se); return l.some(esEjEspalda) && l.some(e => !esEjEspalda(e)); };
+  const agregarEjemplo = (b, se) => { const e = { id: uid('e'), fig: b.fig, n: b.n, tipo: b.tipo, nota: b.nota }; ['meta', 'series', 'reps', 'seg'].forEach(k => { if (b[k] != null) e[k] = b[k]; }); S.ejercicios.push(e); se.ej.push(e.id); };
   const SUGERENCIAS_COMIDA = ['Verduras en el almuerzo', 'Verduras en la cena', 'Sin frituras', 'Sin gaseosas ni jugos azucarados', 'Fruta del día', 'Legumbres o cereales integrales'];
   /* Colores de la app (solo apariencia). Cada uno: [claro: pri, soft, c1], [oscuro: pri, soft, texto sobre pri, c1] */
   const COLORES = {
@@ -422,7 +434,8 @@
     const compacto = (e, marca, txt) => `<details class="item compacto ${marca === '✅' ? 'done' : ''}"><summary>${marca} ${esc(e.n)}<small>${txt}</small></summary>${ejCard(e, k)}</details>`;
     return `<div class="card ${sesionHecha(s, k) ? 'ok' : ''}"><h3>${esc(s.n)}${s.hora ? ' · ' + esc(s.hora) : ''}</h3>
       <p>${hechosL.length} de ${ejs.length} ejercicios completos.${omit ? ' <span class="warnTxt">Marcaste que hoy no pudiste.</span>' : ''}${ejs.length && sesionHecha(s, k) ? ' <span class="okTxt">¡Rutina completa! 🎉</span>' : ''}</p>
-      <div class="row"><button class="pri grow" data-a="ses-todo" data-id="${esc(s.id)}">✅ Lo hice todo</button><button class="ghost grow" data-a="ses-no" data-id="${esc(s.id)}">❌ No pude hoy</button></div></div>
+      <div class="row"><button class="pri grow" data-a="ses-todo" data-id="${esc(s.id)}">✅ Lo hice todo</button><button class="ghost grow" data-a="ses-no" data-id="${esc(s.id)}">❌ No pude hoy</button></div>
+      <div class="row" style="margin-top:8px"><span class="muted grow">${esc(fmtDiasSes(s.dias || []))}${s.hora ? ' · ' + esc(s.hora) : ' · sin horario'}</span><button class="ghost mini" data-a="ses-edit" data-id="${esc(s.id)}">📅 Días y horario</button></div></div>
       ${pendL.map(e => ejCard(e, k)).join('')}
       ${hechosL.length || saltL.length ? `<h3 class="sub">${pendL.length ? 'Ya resuelto hoy' : 'Hecho hoy'}</h3>${hechosL.map(e => compacto(e, '✅', esc(dosisEj(e)))).join('')}${saltL.map(e => compacto(e, '⏭', 'hoy no')).join('')}` : ''}
       ${ejs.length ? '' : '<p class="muted">Esta rutina todavía no tiene ejercicios. Agregalos en Ajustes.</p>'}`;
@@ -453,7 +466,7 @@
     <div class="card warn"><b>Cortá el ejercicio y consultá si aparece:</b><p>dolor fuerte, mareo, falta de aire, hormigueo u otra sensación rara. Los ejercicios de ejemplo son suaves, pero cada cuerpo es distinto: consultá con tu profesional.</p></div>
     ${tarjetaPendientes(true)}
     ${hoyS.length ? hoyS.map(s => sesionBloque(s, now)).join('') : '<div class="card"><b>Hoy no tenés rutina programada.</b></div>'}
-    ${otras.length ? `<details class="card"><summary>Otras rutinas (${otras.length})</summary>${otras.map(s => `<p class="muted">${esc(s.n)} · ${esc(fmtDiasSes(s.dias || []))}</p>${ejDeSesion(s).map(e => ejCard(e)).join('')}`).join('')}</details>` : ''}
+    ${otras.length ? `<details class="card"><summary>Otras rutinas (${otras.length})</summary>${otras.map(s => `<div class="row sp"><p class="muted">${esc(s.n)} · ${esc(fmtDiasSes(s.dias || []))}${s.hora ? ' · ' + esc(s.hora) : ''}</p><button class="ghost mini" data-a="ses-edit" data-id="${esc(s.id)}">📅 Días y horario</button></div>${ejDeSesion(s).map(e => ejCard(e)).join('')}`).join('')}</details>` : ''}
     ${tarjetaEvolucion()}
     <div class="card"><button class="ghost" style="width:100%" data-a="tab" data-t="ajustes">Editar mi plan de ejercicio</button></div>${AVISO_PIE}`;
   }
@@ -576,6 +589,7 @@
     const plan = !mod('ejercicio') ? '' : `<div class="card"><h3>Mi plan de ejercicio</h3><small>Armalo como te indicó tu profesional: rutinas con sus días y ejercicios con sus repeticiones.</small>
       ${S.sesiones.map(se => `<div class="sesion"><div class="row sp"><b>${esc(se.n)}</b><span class="muted">${esc(fmtDiasSes(se.dias || []))}${se.hora ? ' · ' + esc(se.hora) : ''}</span></div>
         <ul class="list">${ejDeSesion(se).map(e => `<li><span>${esc(e.n)}<small>${esc(dosisEj(e))}</small></span><span class="row"><button class="ghost mini" data-a="ej-edit" data-id="${esc(e.id)}">Editar</button><button class="dang mini" data-a="ej-del" data-id="${esc(e.id)}">Quitar</button></span></li>`).join('') || '<li class="muted">Sin ejercicios</li>'}</ul>
+        ${mezclaEspalda(se) ? `<div class="row" style="margin-bottom:6px"><button class="pri mini grow" data-a="ses-separar" data-id="${esc(se.id)}">Separar espalda y core en su propia rutina</button></div>` : ''}
         <div class="row"><button class="ghost mini" data-a="ses-edit" data-id="${esc(se.id)}">Editar rutina</button><button class="dang mini" data-a="ses-del" data-id="${esc(se.id)}">Quitar rutina</button></div></div>`).join('')}
       <div class="row" style="margin-top:8px"><button class="pri grow" data-a="ej-nuevo">Nuevo ejercicio</button><button class="ghost grow" data-a="plan-bib">Desde la biblioteca</button></div>
       <div class="row" style="margin-top:8px"><button class="ghost grow" data-a="ses-nueva">Nueva rutina</button></div></div>`;
@@ -621,7 +635,7 @@
       <div class="card warn"><b>Importante</b><p>A Mi Ritmo no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p></div>`;
     if (p === 'modulos') cuerpo = `<h2>¿Qué querés seguir?</h2><p class="muted">Elegí lo que te sirva. Podés cambiarlo cuando quieras.</p>${MODULOS.map(([k, ic, n, t]) => `<button class="chk-it ${wiz.mods[k] ? 'on' : ''}" data-a="wiz-mod" data-k="${k}" aria-pressed="${wiz.mods[k] ? 'true' : 'false'}"><span>${wiz.mods[k] ? '✅' : '⬜'}</span><span class="tx"><b>${ic} ${n}</b><small>${t}</small></span></button>`).join('')}`;
     if (p === 'mediciones') cuerpo = `<h2>¿Qué querés medir?</h2><p class="muted">Después podés poner tus propios límites en cada una (opcional).</p>${Object.keys(CATALOGO).map(k => `<button class="chk-it ${wiz.meds[k] ? 'on' : ''}" data-a="wiz-med" data-k="${k}" aria-pressed="${wiz.meds[k] ? 'true' : 'false'}"><span>${wiz.meds[k] ? '✅' : '⬜'}</span>${CATALOGO[k].ic} ${esc(CATALOGO[k].n)}</button>`).join('')}`;
-    if (p === 'ejercicio') cuerpo = `<h2>Tu rutina de ejercicio</h2><p class="muted">Elegí ejemplos para empezar o salteá este paso y creá tus propios ejercicios después. Son ejemplos suaves, <b>no una indicación</b>: consultalos con tu profesional.</p>${BIBLIOTECA.map((b, n) => `<button class="chk-it ${wiz.bib[n] ? 'on' : ''}" data-a="wiz-bib" data-k="${n}" aria-pressed="${wiz.bib[n] ? 'true' : 'false'}"><span>${wiz.bib[n] ? '✅' : '⬜'}</span><span class="tx"><b>${esc(b.n)}</b><small>${esc(dosisEj(b))}</small></span></button>`).join('')}`;
+    if (p === 'ejercicio') cuerpo = `<h2>Tu rutina de ejercicio</h2><p class="muted">Elegí ejemplos para empezar o salteá este paso y creá tus propios ejercicios después. Son ejemplos suaves, <b>no una indicación</b>: consultalos con tu profesional.</p><p class="muted">Los de espalda y core van en una rutina aparte, para que elijas sus propios días y horario (en Ajustes → Mi plan de ejercicio).</p>${BIBLIOTECA.map((b, n) => `${n === 0 || grupoBib(b) !== grupoBib(BIBLIOTECA[n - 1]) ? `<h3 class="sub">${GRUPOS_BIB[grupoBib(b)].titulo}</h3>` : ''}<button class="chk-it ${wiz.bib[n] ? 'on' : ''}" data-a="wiz-bib" data-k="${n}" aria-pressed="${wiz.bib[n] ? 'true' : 'false'}"><span>${wiz.bib[n] ? '✅' : '⬜'}</span><span class="tx"><b>${esc(b.n)}</b><small>${esc(dosisEj(b))}</small></span></button>`).join('')}`;
     if (p === 'modo') cuerpo = `<h2>¿Cómo querés usarla?</h2>${MODOS.map(([k, n, t]) => `<button class="opcion ${wiz.modo === k ? 'on' : ''}" data-a="wiz-modo" data-v="${k}" aria-pressed="${wiz.modo === k ? 'true' : 'false'}"><b>${n}</b><small>${t}</small></button>`).join('')}`;
     if (p === 'metas') cuerpo = `<h2>Tus metas (opcional)</h2><p class="muted">Dejá vacío lo que no quieras fijar. Si no sabés qué poner, consultalo con tu profesional.</p><form data-f="wizmetas">
       ${wiz.mods.agua ? campoNum('metaAgua', 'Agua por día (ml)', s.metaAgua, 'Ej: 2000') : ''}${wiz.mods.pasos ? campoNum('metaPasos', 'Pasos por día', s.metaPasos, 'Ej: 8000') : ''}${wiz.mods.actividad ? campoNum('aeroMeta', 'Actividad aeróbica (min por semana)', s.aeroMeta, 'Ej: 150') : ''}</form>`;
@@ -900,12 +914,14 @@
     });
   }
   function modalBiblioteca() {
-    const campos = [{ k: 'sel', t: 'checks', l: 'Elegí los ejemplos que quieras sumar', v: [], opts: BIBLIOTECA.map((b, i) => [String(i), `${b.n} — ${dosisEj(b)}`]) }];
-    if (S.sesiones.length) campos.push({ k: 'ses', t: 'select', l: 'Sumarlos a la rutina', v: S.sesiones[0].id, opts: sesionOpts() });
+    const campos = [{ k: 'sel', t: 'checks', l: 'Elegí los ejemplos que quieras sumar', v: [], opts: BIBLIOTECA.map((b, i) => [String(i), `${grupoBib(b) === 'espalda' ? 'Espalda · ' : ''}${b.n} — ${dosisEj(b)}`]) },
+      { k: 'ses', t: 'select', l: 'Sumarlos a', v: '__auto', opts: [['__auto', 'Ordenar solo: general / espalda y core (recomendado)']].concat(sesionOpts()) }];
     abrirModal('Ejercicios de ejemplo', campos, v => {
       if (!v.sel.length) return 'Elegí al menos uno.';
-      const s = asegurarSesion(v.ses);
-      v.sel.map(Number).forEach(i => { const b = BIBLIOTECA[i]; if (!b) return; const e = { id: uid('e'), fig: b.fig, n: b.n, tipo: b.tipo, nota: b.nota }; ['meta', 'series', 'reps', 'seg'].forEach(k => { if (b[k] != null) e[k] = b[k]; }); S.ejercicios.push(e); s.ej.push(e.id); });
+      const antes = S.sesiones.length, nuevas = [];
+      v.sel.map(Number).forEach(i => { const b = BIBLIOTECA[i]; if (!b) return; agregarEjemplo(b, v.ses === '__auto' ? rutinaDeGrupo(grupoBib(b)) : asegurarSesion(v.ses)); });
+      S.sesiones.slice(antes).forEach(se => nuevas.push(`"${se.n}" (${fmtDiasSes(se.dias)})`));
+      if (nuevas.length) setTimeout(() => toast(`Armé ${nuevas.join(' y ')}. Cambiá días y horario con "Editar rutina".`), 50);
       return undefined;
     }, 'Son ejemplos suaves, no una indicación: consultalos con tu profesional.');
   }
@@ -988,6 +1004,7 @@
       case 'ej-nuevo': modalEjercicio(null); break;
       case 'ej-edit': modalEjercicio(ejPorId(id)); break;
       case 'ej-del': if (ejPorId(id) && confirm(`¿Quitar "${nombreEj(id)}" de tu plan? Lo que registraste no se borra.`)) { S.ejercicios = S.ejercicios.filter(x => x.id !== id); S.sesiones.forEach(s => { s.ej = (s.ej || []).filter(x => x !== id); }); changed(); } break;
+      case 'ses-separar': { const se = sesPorId(id); if (!se) break; const dest = rutinaDeGrupo('espalda'), mover = ejDeSesion(se).filter(esEjEspalda).map(e => e.id); se.ej = se.ej.filter(x => !mover.includes(x)); mover.forEach(x => { if (!dest.ej.includes(x)) dest.ej.push(x); }); setupReminders(); changed(); toast(`Listo: "${dest.n}" es una rutina aparte. Elegí sus días y horario con "Editar rutina".`); break; }
       case 'ses-nueva': modalSesion(null); break;
       case 'ses-edit': modalSesion(sesPorId(id)); break;
       case 'ses-del': { const s = sesPorId(id); if (s && confirm(`¿Quitar la rutina "${s.n}"? Los ejercicios que tiene también se quitan del plan.`)) { S.ejercicios = S.ejercicios.filter(x => !(s.ej || []).includes(x.id)); S.sesiones = S.sesiones.filter(x => x.id !== id); setupReminders(); changed(); } break; }
@@ -1060,10 +1077,7 @@
     S.modulos = Object.assign({}, S.modulos, wiz.mods); S.modo = wiz.modo;
     Object.keys(wiz.meds).filter(t => wiz.meds[t] && CATALOGO[t]).forEach(t => { if (!S.medidas.some(m => m.tipo === t && t !== 'propia')) S.medidas.push(nuevaMedida(t, t === 'propia' ? 'Mi medición' : '')); });
     const sel = BIBLIOTECA.filter((b, i) => wiz.bib[i]);
-    if (sel.length) {
-      const s = asegurarSesion(null);
-      sel.forEach(b => { const e = { id: uid('e'), fig: b.fig, n: b.n, tipo: b.tipo, nota: b.nota }; ['meta', 'series', 'reps', 'seg'].forEach(k => { if (b[k] != null) e[k] = b[k]; }); S.ejercicios.push(e); s.ej.push(e.id); });
-    }
+    sel.forEach(b => agregarEjemplo(b, rutinaDeGrupo(grupoBib(b))));
     S.listo = true; wiz = null; tab = 'hoy'; save(); setupReminders(); render(); window.scrollTo(0, 0); iniciarPasos();
     if (mod('pasos')) syncSensor(false);
   }

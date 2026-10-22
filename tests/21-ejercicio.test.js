@@ -119,7 +119,7 @@ test('plan: crear, editar y quitar rutinas con días y hora', async ({ abrir }) 
   S = await estado(page); assert.ok(!S.ejercicios.some(e => e.id === 'e4'), 'los ejercicios de una rutina quitada se quitan del plan');
 });
 
-test('biblioteca: suma ejemplos a la rutina elegida (con figura) y crea "Mi rutina" si no hay ninguna', async ({ abrir }) => {
+test('biblioteca: ordena solo en rutina general y espalda y core (con figura)', async ({ abrir }) => {
   const { page } = await abrir({ ls: base({ modulos: { ejercicio: true } }) });
   await ir(page, 'ejercicio');
   assert.match(await texto(page), /Todavía no tenés una rutina/);
@@ -127,7 +127,7 @@ test('biblioteca: suma ejemplos a la rutina elegida (con figura) y crea "Mi ruti
   assert.match(await page.innerText('#modal'), /no una indicación/);
   await page.check('#modal input[value="0"]'); await page.check('#modal input[value="10"]'); await page.click('#modal button[type=submit]');
   const S = await estado(page);
-  assert.strictEqual(S.sesiones[0].n, 'Mi rutina'); assert.strictEqual(S.sesiones[0].dias.length, 7);
+  assert.deepStrictEqual(S.sesiones.map(x => [x.n, x.dias.join(''), x.ej.length]), [['Rutina general', '0123456', 1], ['Espalda y core', '135', 1]], 'lo de espalda queda en su propia rutina, lun/mié/vie');
   assert.deepStrictEqual(S.ejercicios.map(e => e.fig), ['giros', 'lateral']); assert.strictEqual(S.ejercicios[1].tipo, 'tiempo');
   await ir(page, 'ejercicio'); assert.strictEqual(await page.locator('.item .fig svg').count(), 2);
 });
@@ -216,4 +216,47 @@ test('evolución: sin rutinas programadas no muestra gráfico y no rompe', async
   await ir(page, 'ejercicio'); await page.click('[data-a=sub-ev][data-v=mes]');
   assert.deepStrictEqual(errores, []);
   const v = await page.locator('#view svg[aria-label^="Porcentaje"]').count(); assert.ok(v <= 1);
+});
+
+test('biblioteca: se puede elegir una rutina existente, y "ordenar solo" reutiliza la que ya existe', async ({ abrir }) => {
+  const { page } = await abrir({ ls: plan() });
+  await ir(page, 'ajustes'); await page.click('[data-a=plan-bib]');
+  await page.check('#modal input[value="9"]'); await page.selectOption('#modal [name=ses]', 's2'); await page.click('#modal button[type=submit]');   // Puente → "Tarde"
+  let S = await estado(page); assert.ok(S.sesiones.find(x => x.id === 's2').ej.length === 2); assert.strictEqual(S.sesiones.length, 2);
+  await page.click('[data-a=plan-bib]'); await page.check('#modal input[value="6"]'); await page.click('#modal button[type=submit]');   // Gato → espalda (crea)
+  await page.click('[data-a=plan-bib]'); await page.check('#modal input[value="7"]'); await page.click('#modal button[type=submit]');   // Bird → la misma
+  S = await estado(page); const esp = S.sesiones.filter(x => x.n === 'Espalda y core'); assert.strictEqual(esp.length, 1); assert.strictEqual(esp[0].ej.length, 2);
+});
+
+test('asistente: los ejemplos de espalda van en una rutina aparte con sus propios días', async ({ abrir }) => {
+  const { page } = await abrir({});
+  await page.click('[data-a=wiz-sig]'); await page.click('[data-a=wiz-mod][data-k=ejercicio]'); await page.click('[data-a=wiz-sig]');
+  assert.match(await texto(page), /Espalda y core/);
+  await page.click('[data-a=wiz-bib][data-k="0"]'); await page.click('[data-a=wiz-bib][data-k="6"]'); await page.click('[data-a=wiz-bib][data-k="9"]');
+  await page.click('[data-a=wiz-sig]'); await page.click('[data-a=wiz-sig]'); await page.click('[data-a=wiz-fin]');
+  const S = await estado(page);
+  assert.deepStrictEqual(S.sesiones.map(x => [x.n, x.dias.join(''), x.ej.length]), [['Rutina general', '0123456', 1], ['Espalda y core', '135', 2]]);
+});
+
+test('"Días y horario": desde la pestaña Ejercicio se cambian los días y la hora de la rutina', async ({ abrir }) => {
+  const { page } = await abrir({ ls: plan() });
+  await ir(page, 'ejercicio');
+  assert.match(await texto(page), /lun, mié, vie · 08:00/);
+  await page.click('[data-a=ses-edit][data-id=s1]');
+  await page.fill('#modal [name=hora]', '18:30');
+  await page.uncheck('#modal input[name=dias][value="3"]');
+  await page.click('#modal button[type=submit]');
+  const S = await estado(page); const s1 = S.sesiones.find(x => x.id === 's1'); assert.deepStrictEqual([s1.dias, s1.hora], [[1, 5], '18:30']);
+  await ir(page, 'ejercicio'); assert.match(await texto(page), /lun, vie · 18:30/);
+});
+
+test('rutina que mezcla espalda con lo demás: un botón separa espalda y core con sus propios días', async ({ abrir }) => {
+  const ej = [EJ('e1', 'Giros', 'reps', { fig: 'giros' }), EJ('e2', 'Gato', 'series', { fig: 'gato' }), EJ('e3', 'Puente', 'series', { fig: 'puente' }), EJ('e4', 'Propio', 'reps')];
+  const { page } = await abrir({ ls: base({ modulos: { ejercicio: true }, ejercicios: ej, sesiones: [{ id: 's1', n: 'Mi rutina', dias: [0, 1, 2, 3, 4, 5, 6], hora: '08:00', ej: ['e1', 'e2', 'e3', 'e4'] }] }) });
+  await ir(page, 'ajustes');
+  await page.click('[data-a=ses-separar][data-id=s1]');
+  const S = await estado(page);
+  assert.deepStrictEqual(S.sesiones.map(x => [x.n, x.dias.join(''), x.hora, x.ej.join()]), [['Mi rutina', '0123456', '08:00', 'e1,e4'], ['Espalda y core', '135', '', 'e2,e3']]);
+  assert.strictEqual(await page.locator('[data-a=ses-separar]').count(), 0, 'ya no se ofrece');
+  assert.deepStrictEqual(S.ejercicios.length, 4, 'no se pierde ni se duplica ningún ejercicio');
 });
