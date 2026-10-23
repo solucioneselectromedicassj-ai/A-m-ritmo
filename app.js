@@ -679,8 +679,24 @@
     let delta;
     if (!S.sensor) { const m0 = new Date(l.t); m0.setHours(0, 0, 0, 0); delta = l.b >= m0.getTime() - 60000 ? l.c : 0; } // si el teléfono se encendió ese día, todo lo contado es de ese día
     else delta = l.c >= S.sensor.last ? l.c - S.sensor.last : l.c; // si bajó, el teléfono se reinició
+    const antes = S.sensor ? S.sensor.t : null;
     S.sensor = { last: l.c, t: l.t };
-    if (delta > 0 && delta < 60000) { const d = day(ymd(new Date(l.t))); d.pasos = (d.pasos || 0) + delta; }
+    if (!(delta > 0 && delta < 60000)) return;
+    const parte = antes && antes < l.t ? repartirPasos(antes, l.t, delta) : { [ymd(new Date(l.t))]: delta };
+    Object.keys(parte).forEach(k => { if (parte[k] > 0) { const d = day(k); d.pasos = (d.pasos || 0) + parte[k]; } });
+  }
+  /* Si entre dos lecturas se cruzó la medianoche (el teléfono estuvo sin lecturas de noche), los pasos no son todos del día nuevo:
+     se reparten según las horas "de actividad" (7 a 23) de cada día dentro del intervalo; si todo el intervalo es de noche, según el tiempo. */
+  function repartirPasos(t0, t1, delta) {
+    const ini = new Date(t0); ini.setHours(0, 0, 0, 0);
+    const dias = []; for (let d = ini; d.getTime() <= t1 && dias.length < 9; d = sumarDias(d, 1)) dias.push(d);
+    if (dias.length < 2 || dias.length > 8) return { [ymd(new Date(t1))]: delta };
+    const h = (d, x) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), x).getTime(), sol = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+    let w = dias.map(d => sol(t0, t1, h(d, 7), h(d, 23)));
+    if (!w.some(x => x > 0)) w = dias.map(d => sol(t0, t1, h(d, 0), h(d, 24)));
+    const tot = w.reduce((a, b) => a + b, 0), out = {}; let dado = 0, acum = 0;
+    dias.forEach((d, i) => { acum += w[i]; const hasta = i === dias.length - 1 ? delta : Math.round(delta * acum / tot); out[ymd(d)] = hasta - dado; dado = hasta; });
+    return out;
   }
   async function aplicarSegundoPlano(P) { try { if (S.settings.segundoPlano) await P.startBackground(); else await P.stopBackground(); } catch (e) { /* sin segundo plano */ } }
   async function syncSensor(pedir) {

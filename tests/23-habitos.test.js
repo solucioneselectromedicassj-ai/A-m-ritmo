@@ -28,7 +28,8 @@ test('pasos (Android): el sensor reparte por día, detecta reinicio y el botón 
     read: '() => ({counter:1560,bootTime:0})', startBackground: '() => ({})', stopBackground: '() => ({})' } } });
   await page.waitForTimeout(300);
   let S = await estado(page);
-  assert.strictEqual(S.days['2026-10-18'].pasos, 300); assert.strictEqual(S.days['2026-10-19'].pasos, 260);
+  // el intervalo 18/10 10:15 → 19/10 11:45 (+200) cruza la medianoche: 765 min activos ayer y 285 hoy → 146 / 54
+  assert.strictEqual(S.days['2026-10-18'].pasos, 446); assert.strictEqual(S.days['2026-10-19'].pasos, 114);
   await irHab(page); await page.click('#view details summary'); await page.click('[data-a=bg-toggle]');
   assert.ok((await page.evaluate(() => window.__llamadas.map(x => x[1]))).includes('stopBackground'));
   assert.strictEqual((await estado(page)).settings.segundoPlano, false);
@@ -141,4 +142,31 @@ test('pasos (Android): la primera vez pide el permiso solo y después se cuenta 
   // segunda apertura: no vuelve a pedir
   await page.evaluate(() => { window.__llamadas.length = 0; }); await page.reload(); await page.waitForFunction(() => window.SA); await page.waitForTimeout(300);
   assert.ok(!(await page.evaluate(() => window.__llamadas.map(x => x[1]))).includes('ensurePermission'));
+});
+
+test('pasos (Android): lo caminado a la noche no se cuenta como pasos del día siguiente', async ({ abrir }) => {
+  // Última lectura ayer 21:00 (contador 1000); el teléfono no leyó de noche; hoy a las 07:30 hay 500 pasos más: 2 h de actividad ayer y 30 min hoy.
+  const t0 = Date.parse('2026-10-18T21:00:00'), t1 = Date.parse('2026-10-19T07:30:00');
+  const nat = lecturas => ({ StepCounter: { isAvailable: '() => ({available:true})', hasPermission: '() => ({granted:true})', drain: `() => ({readings:[{t:${t1},c:1500,b:0}]})`, read: '() => ({counter:1500,bootTime:0})', startBackground: '() => ({})' } });
+  const { page } = await abrir({ ls: con({ pasos: true }, { sensor: { last: 1000, t: t0 } }), native: nat(), fecha: '2026-10-19T07:31:00' });
+  await page.waitForTimeout(300);
+  const S = await estado(page);
+  assert.strictEqual(S.days['2026-10-18'].pasos, 400, 'la tarde-noche de ayer queda en ayer');
+  assert.strictEqual(S.days['2026-10-19'].pasos, 100, 'a la mañana solo se ven los de la mañana');
+  await irHab(page); assert.strictEqual(await page.innerText('#pasosNum'), '100');
+});
+
+test('pasos (Android): un intervalo solo de madrugada o de varios días no rompe ni duplica', async ({ abrir }) => {
+  // 23:30 → 06:50: todo de noche → se reparte por tiempo (30 min ayer, 410 min hoy)
+  const t0 = Date.parse('2026-10-18T23:30:00'), t1 = Date.parse('2026-10-19T06:50:00');
+  let a = await abrir({ ls: con({ pasos: true }, { sensor: { last: 0, t: t0 } }), fecha: '2026-10-19T06:51:00', native: { StepCounter: { isAvailable: '() => ({available:true})', hasPermission: '() => ({granted:true})', drain: `() => ({readings:[{t:${t1},c:440,b:0}]})`, read: '() => ({counter:440,bootTime:0})', startBackground: '() => ({})' } } });
+  await a.page.waitForTimeout(300);
+  let S = await estado(a.page); assert.strictEqual((S.days['2026-10-18'].pasos || 0) + S.days['2026-10-19'].pasos, 440, 'no se pierde ni se duplica ningún paso');
+  assert.strictEqual(S.days['2026-10-18'].pasos, 30);
+  // 3 días sin abrir la app: se reparte entre los tres días y la suma coincide
+  const u = Date.parse('2026-10-16T20:00:00');
+  a = await abrir({ ls: con({ pasos: true }, { sensor: { last: 0, t: u } }), native: { StepCounter: { isAvailable: '() => ({available:true})', hasPermission: '() => ({granted:true})', drain: '() => ({readings:[]})', read: '() => ({counter:3000,bootTime:0})', startBackground: '() => ({})' } } });
+  await a.page.waitForTimeout(300);
+  S = await estado(a.page); const suma = ['2026-10-16', '2026-10-17', '2026-10-18', '2026-10-19'].reduce((x, k) => x + ((S.days[k] || {}).pasos || 0), 0);
+  assert.strictEqual(suma, 3000); assert.ok(S.days['2026-10-17'].pasos > 0 && S.days['2026-10-19'].pasos > 0);
 });
