@@ -42,7 +42,7 @@ android/        proyecto Capacitor (appId ar.amiritmo.app), StepCounterPlugin + 
 ```
 { v, listo, modo, modulos:{ejercicio,pasos,agua,actividad,comida,medidas},
   settings:{ metaPasos, metaAgua, aeroMeta, vaso, descansoSeg, aguaDesde, aguaHasta, recAgua, recMin, segundoPlano, pasosRechazos,
-            recPasosOn, recPasosHora, seguirOn, seguirHora,
+            recPasos, recPasosHora, seguirOn, seguirHora,
             notas, color (coral|azul|verde|violeta|naranja|rosa|gris), ultimoRespaldo, respaldoPospuesto, creado, informe:{periodo, excluir:{}} },
   ejercicios:[{id,n,tipo:'reps'|'series'|'tiempo',meta|series,reps|seg,nota?,fig?}],
   sesiones:[{id,n,dias:[0-6],hora,ej:[ids]}],
@@ -86,6 +86,6 @@ Las pruebas usan fecha simulada (lunes 19/10/2026) y simulan los plugins de Capa
 - Ícono nuevo (degradé de atardecer naranja→rosa→violeta con un pulso que termina en un punto: "mi ritmo"); `icon.svg`, `icon-*.png` y todos los `mipmap-*`/`splash.png` de Android se generan de ese SVG (render con Playwright). Color por defecto **coral** (el azul quedó como opción).
 - Bienvenida animada (`#splash`, `iniciarBienvenida`): logo que dibuja el pulso + el aviso "no reemplaza indicaciones médicas"; se va sola a los ~5,6 s o al tocarla (pasado 0,9 s) y el dashboard entra escalonado (`body.entrando`). Respeta `prefers-reduced-motion`. Las pruebas la desactivan con `window.__sinSplash` (solo `tests/30-bienvenida.test.js` la usa).
 - Estética: tarjetas redondeadas con sombra suave, botones con degradé (`--pri`→`--g2`), navegación inferior flotante tipo píldora. Variables en `:root` de `styles.css` (la paleta elegida en Ajustes las pisa desde `aplicarColor`).
-- **Evolución de pasos y actividad** (`evolucionDiaria`): Semana (por día), Mes y Trimestre (por semana: 4 y 13) y Año (por mes). Pasos: promedio de los días con registro y días que llegó a la meta; actividad: total de minutos y promedio semanal. Aviso diario de pasos (`recPasosOn/Hora`, id 3700) que no suena si ya llegó a la meta.
+- **Evolución de pasos y actividad** (`evolucionDiaria`): Semana (por día), Mes y Trimestre (por semana: 4 y 13) y Año (por mes). Pasos: promedio de los días con registro y días que llegó a la meta; actividad: total de minutos y promedio semanal. Aviso diario de pasos **opcional y apagado por defecto** (`recPasos`/`recPasosHora`, id 3700; los pasos se cuentan solos): no suena si ya llegó a la meta.
 - **Alimentación**: contadores sugeridos por día con suma semanal (fruta, pescado, verduras, legumbres: `CONTADORES_SUG`). **Recordatorios propios** (`S.recordatorios`, `modalRecordatorio`): texto + hora + días; en modo "solo registro" ofrece activar los recordatorios.
 - Un ejercicio plegado que se está usando queda abierto al volver a dibujar la pantalla (`abiertosEj`).

@@ -108,7 +108,7 @@
   const DEFAULTS = () => ({
     v: VERSION, listo: false, modo: 'registro',
     modulos: { ejercicio: false, pasos: false, agua: false, actividad: false, comida: false, medidas: false },
-    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, recPasosOn: true, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
+    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
       ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', color: 'coral', informe: { periodo: 90, excluir: {} } },
     ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, recup: {}, cerrados: {}, recordatorios: [], sensor: null
   });
@@ -654,7 +654,7 @@
         <label class="chk"><input type="checkbox" name="recAgua" ${s.recAgua ? 'checked' : ''}>Recordarme tomar agua${conRecordatorios() ? '' : ' (activá un modo con recordatorios)'}</label>
         <div class="grid2">${campoNum('recMin', 'Cada cuántos minutos', s.recMin, '', 'required min="15"')}<div></div></div>
         <div class="grid2"><div><label for="s_aguaDesde">Desde</label><input id="s_aguaDesde" name="aguaDesde" type="time" value="${esc(s.aguaDesde)}" required></div><div><label for="s_aguaHasta">Hasta</label><input id="s_aguaHasta" name="aguaHasta" type="time" value="${esc(s.aguaHasta)}" required></div></div>` : ''}
-      ${mod('pasos') ? campoNum('metaPasos', 'Meta de pasos por día', s.metaPasos, 'Ej: 8000') + `<label class="chk"><input type="checkbox" name="recPasosOn" ${s.recPasosOn !== false ? 'checked' : ''}>Avisarme a la noche cómo voy con los pasos${conRecordatorios() ? '' : ' (activá un modo con recordatorios)'}</label><label for="s_recPasosHora">Hora del aviso de pasos</label><input id="s_recPasosHora" name="recPasosHora" type="time" value="${esc(s.recPasosHora || '20:00')}" required><small>No suena si ya llegaste a tu meta.</small>` : ''}
+      ${mod('pasos') ? campoNum('metaPasos', 'Meta de pasos por día', s.metaPasos, 'Ej: 8000') + `<label class="chk"><input type="checkbox" name="recPasos" ${s.recPasos === true ? 'checked' : ''}>Avisarme a la noche cómo voy con los pasos (opcional: se cuentan solos)${conRecordatorios() ? '' : ' (activá un modo con recordatorios)'}</label><label for="s_recPasosHora">Hora del aviso de pasos</label><input id="s_recPasosHora" name="recPasosHora" type="time" value="${esc(s.recPasosHora || '20:00')}" required><small>No suena si ya llegaste a tu meta.</small>` : ''}
       ${mod('actividad') ? campoNum('aeroMeta', 'Meta de actividad aeróbica (min por semana)', s.aeroMeta, 'Ej: 150') : ''}
       ${mod('ejercicio') ? campoNum('descansoSeg', 'Descanso entre series (segundos)', s.descansoSeg, '', 'required min="5"') : ''}
       ${mod('ejercicio') ? `<label class="chk"><input type="checkbox" name="seguirOn" ${s.seguirOn !== false ? 'checked' : ''}>Preguntarme a la noche si hice mi rutina${conRecordatorios() ? '' : ' (activá un modo con recordatorios)'}</label><label for="s_seguirHora">Hora de la pregunta</label><input id="s_seguirHora" name="seguirHora" type="time" value="${esc(s.seguirHora || '21:00')}" required><small>No suena si ya marcaste todo. Lo que quede pendiente lo podés repartir en la semana.</small>` : ''}
@@ -1250,7 +1250,7 @@
       if (f.elements.seguirHora && !horaOk(String(fd.get('seguirHora')))) n.err = 'Revisá la hora de la pregunta de la noche.';
       if (f.elements.aguaDesde && !(horaOk(String(fd.get('aguaDesde'))) && horaOk(String(fd.get('aguaHasta'))))) n.err = 'Revisá las horas del recordatorio de agua.';
       if (n.err) return toast(n.err);
-      if (f.elements.recPasosOn) { s.recPasosOn = fd.get('recPasosOn') === 'on'; s.recPasosHora = String(fd.get('recPasosHora')); }
+      if (f.elements.recPasos) { s.recPasos = fd.get('recPasos') === 'on'; s.recPasosHora = String(fd.get('recPasosHora')); }
       if (f.elements.seguirOn) { s.seguirOn = fd.get('seguirOn') === 'on'; s.seguirHora = String(fd.get('seguirHora')); }
       Object.assign(s, n); s.notas = String(fd.get('notas') || '').slice(0, 1000); if (f.elements.recAgua) { s.recAgua = fd.get('recAgua') === 'on'; s.aguaDesde = String(fd.get('aguaDesde')); s.aguaHasta = String(fd.get('aguaHasta')); }
       setupReminders(); changed(); toast('Ajustes guardados');
@@ -1303,7 +1303,7 @@
         if (mod('ejercicio')) S.sesiones.slice(0, 80).forEach((se, i) => { if (se.hora && horaOk(se.hora)) (se.dias || []).forEach(d => { const [hh, mm] = se.hora.split(':').map(Number); list.push({ id: 3000 + i * 10 + d, title: `🏋️ ${se.n}`, body: 'Es hora de tu rutina. Después marcá lo que hiciste.', channelId: 'recordatorios', schedule: d === ahora.getDay() && sesionCumplidaHoy(se) ? { at: proximo(hh, mm, 7), repeats: true, every: 'week', allowWhileIdle: true } : { on: { weekday: d + 1, hour: hh, minute: mm }, allowWhileIdle: true } }); }); });
       }
       if (conRecordatorios()) S.recordatorios.slice(0, 50).forEach((r, i) => { if (horaOk(r.hora)) { const [rh, rm] = r.hora.split(':').map(Number); (r.dias || []).forEach(d => list.push({ id: 4000 + i * 10 + d, title: `🔔 ${r.txt}`, body: 'Recordatorio de A Mi Ritmo.', channelId: 'recordatorios', schedule: { on: { weekday: d + 1, hour: rh, minute: rm }, allowWhileIdle: true } })); } });
-      if (conRecordatorios() && mod('pasos') && s.recPasosOn !== false && horaOk(s.recPasosHora)) diario(3700, s.recPasosHora, '👣 ¿Cómo van tus pasos de hoy?', s.metaPasos ? `Tu meta es de ${s.metaPasos} pasos. Abrí A Mi Ritmo para ver cuántos llevás.` : 'Abrí A Mi Ritmo para ver cuántos llevás hoy.', pasosCumplidos());
+      if (conRecordatorios() && mod('pasos') && s.recPasos === true && horaOk(s.recPasosHora)) diario(3700, s.recPasosHora, '👣 ¿Cómo van tus pasos de hoy?', s.metaPasos ? `Tu meta es de ${s.metaPasos} pasos. Abrí A Mi Ritmo para ver cuántos llevás.` : 'Abrí A Mi Ritmo para ver cuántos llevás hoy.', pasosCumplidos());
       if (conRecordatorios() && mod('ejercicio') && s.seguirOn !== false && horaOk(s.seguirHora)) {
         const [sh, sm] = s.seguirHora.split(':').map(Number), resueltas = sesionesDelDia(ahora).filter(se => ejDeSesion(se).length).every(sesionCumplidaHoy);
         for (let d = 0; d < 7; d++) if (S.sesiones.some(se => (se.dias || []).includes(d) && ejDeSesion(se).length)) list.push({ id: 3600 + d, title: '🏋️ ¿Hiciste tu rutina de hoy?', body: 'Abrí A Mi Ritmo y marcá lo que hiciste, o tocá "No pude hoy". Lo pendiente lo podés repartir en la semana.', channelId: 'recordatorios', schedule: d === ahora.getDay() && resueltas ? { at: proximo(sh, sm, 7), repeats: true, every: 'week', allowWhileIdle: true } : { on: { weekday: d + 1, hour: sh, minute: sm }, allowWhileIdle: true } });
