@@ -244,3 +244,8 @@ input,select,textarea{border-radius:14px;background:color-mix(in srgb,var(--bg) 
 body.entrando main .card,body.entrando main h2{animation:sp-sube .55s both}
 body.entrando main>:nth-child(2){animation-delay:.05s}body.entrando main>:nth-child(3){animation-delay:.12s}body.entrando main>:nth-child(4){animation-delay:.19s}body.entrando main>:nth-child(5){animation-delay:.26s}body.entrando main>:nth-child(6){animation-delay:.33s}body.entrando main>:nth-child(n+7){animation-delay:.4s}
 @media (prefers-reduced-motion:reduce){.sp-logo,.sp-pulso,.sp-punto,.sp-nombre,.sp-lema,.sp-aviso,.sp-toque,body.entrando main .card,body.entrando main h2{animation:none!important;opacity:1;stroke-dashoffset:0}#splash{transition:opacity .2s}}
+
+.fila-ej{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}
+.fila-ej .grow{min-width:140px}
+details.mas{margin:0 0 4px}
+details.mas>summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:var(--muted);font-size:.9rem}

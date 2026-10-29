@@ -148,7 +148,7 @@ test('plan: sin ejercicio activado no aparece la pestaña, y los datos se conser
 });
 
 test('ejercicio por ítem: "Hoy no" lo anota, mañana aparece como pendiente (sin sumar de más) y se puede deshacer', async ({ abrir }) => {
-  const plan = { modulos: { ejercicio: true }, ejercicios: [EJ('e1', 'Giros', 'reps'), EJ('e2', 'Puente', 'series')], sesiones: [{ id: 's1', n: 'Mañana', dias: [0, 1, 2, 3, 4, 5, 6], hora: '', ej: ['e1'] }, { id: 's2', n: 'Solo martes', dias: [2], hora: '', ej: ['e2'] }] };
+  const plan = { modulos: { ejercicio: true }, ejercicios: [EJ('e1', 'Giros', 'reps'), EJ('e2', 'Puente', 'series')], sesiones: [{ id: 's1', n: 'Mañana', dias: [0, 1, 2, 3, 4, 5, 6], hora: '', ej: ['e1'] }, { id: 's2', n: 'Lunes y martes', dias: [1, 2], hora: '', ej: ['e2'] }], settings: { creado: '2026-10-19' } };
   // hoy: lunes 19 → "Hoy no" en Giros
   let a = await abrir({ ls: base(plan) });
   await ir(a.page, 'ejercicio'); await a.page.click('[data-a=ej-no][data-id=e1]');
@@ -160,9 +160,9 @@ test('ejercicio por ítem: "Hoy no" lo anota, mañana aparece como pendiente (si
   a = await abrir({ ls, fecha: '2026-10-20T12:00:00' });
   await ir(a.page, 'ejercicio');
   const t = await texto(a.page);
-  assert.match(t, /Ayer no hiciste: Giros, Puente/); assert.match(t, /No hace falta compensar con más repeticiones/);
+  assert.match(t, /Ayer no hiciste: Giros, Puente/); assert.match(t, /con la dosis de siempre/); assert.match(t, /Repartir en la semana/);
   assert.strictEqual(await a.page.locator('#view .item', { hasText: 'Giros' }).count(), 1, 'Giros no se duplica: ya está en la rutina de hoy');
-  assert.strictEqual(await a.page.locator('#view .item', { hasText: 'Puente' }).count(), 1, 'Puente se ofrece aunque hoy no lo programe la rutina');
+  assert.strictEqual(await a.page.locator('#view .item', { hasText: 'Puente' }).count(), 1, 'Puente no se duplica');
   assert.match(await texto(a.page, '#nav').then(() => '#view').then(() => a.page.innerText('#view')), /Ayer no hiciste/);
   await a.page.click('[data-a=ej-][data-id=e1]').catch(() => { });
   for (let i = 0; i < 10; i++) await a.page.click('[data-a="ej+"][data-id=e1]');
@@ -183,7 +183,7 @@ test('ejercicio por ítem: "Lo hice" completa la dosis y saca la marca "hoy no"'
 });
 
 test('ejercicio: lo completado se pliega y quedan a la vista solo los pendientes', async ({ abrir }) => {
-  const { page } = await abrir({ ls: plan({ days: { '2026-10-19': { ej: { e1: 30 }, omitEj: { e3: true } } } }) });
+  const { page } = await abrir({ ls: plan({ settings: { creado: '2026-10-19' }, days: { '2026-10-19': { ej: { e1: 30 }, omitEj: { e3: true } } } }) });
   await ir(page, 'ejercicio');
   const visibles = await page.$$eval('#view .item:not(.compacto)', xs => xs.filter(x => !x.closest('details:not([open])')).map(x => x.querySelector('b').textContent));
   assert.deepStrictEqual(visibles, ['Puente'], 'solo el que falta, con su figura y sus botones');
@@ -259,4 +259,69 @@ test('rutina que mezcla espalda con lo demás: un botón separa espalda y core c
   assert.deepStrictEqual(S.sesiones.map(x => [x.n, x.dias.join(''), x.hora, x.ej.join()]), [['Mi rutina', '0123456', '08:00', 'e1,e4'], ['Espalda y core', '135', '', 'e2,e3']]);
   assert.strictEqual(await page.locator('[data-a=ses-separar]').count(), 0, 'ya no se ofrece');
   assert.deepStrictEqual(S.ejercicios.length, 4, 'no se pierde ni se duplica ningún ejercicio');
+});
+
+test('Hoy: la rutina se habilita a su hora, cada ejercicio desaparece al marcarlo y quedan los pendientes', async ({ abrir }) => {
+  // "Mañana" lun/mié/vie 08:00 (hoy lunes 12:00): ya habilitada
+  const { page } = await abrir({ ls: plan() });
+  const filas = () => page.$$eval('#view .fila-ej b', xs => xs.map(x => x.textContent));
+  assert.deepStrictEqual(await filas(), ['Giros', 'Puente', 'Plancha']);
+  await page.click('[data-a=ej-ok][data-id=e1]');
+  assert.deepStrictEqual(await filas(), ['Puente', 'Plancha'], 'el hecho desaparece y quedan los pendientes');
+  assert.match(await texto(page), /1 de 3 resueltos/);
+  await page.click('[data-a=ej-no][data-id=e2]');
+  assert.deepStrictEqual(await filas(), ['Plancha']);
+  await page.click('[data-a=ses-todo][data-id=s1]');
+  assert.deepStrictEqual(await filas(), []); assert.match(await texto(page), /✅ Mañana · 08:00/);
+  assert.strictEqual((await estado(page)).days['2026-10-19'].ej.e3, 2);
+});
+
+test('Hoy: antes de la hora la rutina queda en espera y se puede empezar antes', async ({ abrir }) => {
+  const { page } = await abrir({ ls: plan(), fecha: '2026-10-19T06:00:00' });
+  assert.match(await texto(page), /Se habilita a las 08:00\. 3 ejercicios para hoy\./); assert.strictEqual(await page.locator('#view .fila-ej').count(), 0);
+  await page.click('[data-a=hoy-abrir][data-id=s1]'); assert.strictEqual(await page.locator('#view .fila-ej').count(), 3);
+});
+
+test('Hoy: sin horario la rutina está habilitada todo el día; los días sin rutina no muestran nada', async ({ abrir }) => {
+  const a = await abrir({ ls: plan({ sesiones: [{ id: 's1', n: 'Mañana', dias: [1], hora: '', ej: ['e1'] }] }), fecha: '2026-10-19T05:00:00' });
+  assert.strictEqual(await a.page.locator('#view .fila-ej').count(), 1);
+  const b = await abrir({ ls: plan(), fecha: '2026-10-20T12:00:00' });       // martes: toca "Tarde"
+  assert.deepStrictEqual(await b.page.$$eval('#view .fila-ej b', xs => xs.map(x => x.textContent)), ['Elongar']);
+  const c = await abrir({ ls: plan(), fecha: '2026-10-21T12:00:00' });       // miércoles: "Mañana" otra vez
+  assert.strictEqual(await c.page.locator('#view .fila-ej').count(), 3);
+});
+
+test('pendientes de la semana: "Repartir" suma una recuperación opcional por día (máx. 3) y se descuenta al hacerla', async ({ abrir }) => {
+  // Hoy lunes 19; "Giros" (30 rep) diario, no se hizo el 15, 16 y 17 (y el 18 sí).
+  const dias = { '2026-10-18': { ej: { e1: 30 } } };
+  const ls = plan({ settings: { creado: '2026-10-01' }, sesiones: [{ id: 's1', n: 'Mañana', dias: [0, 1, 2, 3, 4, 5, 6], hora: '', ej: ['e1'] }], days: dias });
+  const { page } = await abrir({ ls });
+  let t = await texto(page); assert.match(t, /Te quedaron pendientes esta semana: Giros/);
+  await page.click('[data-a=rec-repartir]');
+  let S = await estado(page);
+  assert.strictEqual(S.recup.e1, 3, 'tope de 3 aunque se hayan perdido 5 días'); assert.ok(Object.keys(S.cerrados).length >= 5);
+  assert.doesNotMatch(await texto(page), /Te quedaron pendientes|Ayer no hiciste/, 'una vez repartido deja de figurar');
+  assert.match(await texto(page), /Recuperás una pendiente: si querés, sumá 6 repeticiones más \(opcional\)/);   // 20 % de 30
+  // hacer la dosis normal (30) no descuenta; hacer dosis + extra (36) descuenta UNA y solo una vez por día
+  await page.evaluate(() => { window.SA.state().days['2026-10-19'] = { ej: { e1: 30 } }; });
+  await ir(page, 'ejercicio'); await abrirR(page);
+  for (let i = 0; i < 6; i++) await page.click('[data-a="ej+"][data-id=e1]');
+  S = await estado(page); assert.strictEqual(S.days['2026-10-19'].ej.e1, 36); assert.strictEqual(S.recup.e1, 2, 'se descontó una');
+  await abrirR(page); for (let i = 0; i < 6; i++) await page.click('[data-a="ej+"][data-id=e1]');
+  S = await estado(page); assert.strictEqual(S.recup.e1, 2, 'solo una recuperación por día');
+  await ir(page, 'hoy'); assert.doesNotMatch(await texto(page), /Recuperás una pendiente/);
+});
+
+test('pendientes de la semana: "Dejarlo así" las cierra sin sumar nada', async ({ abrir }) => {
+  const ls = plan({ settings: { creado: '2026-10-01' }, sesiones: [{ id: 's1', n: 'Mañana', dias: [0, 1, 2, 3, 4, 5, 6], hora: '', ej: ['e1'] }] });
+  const { page } = await abrir({ ls });
+  await page.click('[data-a=rec-dejar]');
+  const S = await estado(page); assert.deepStrictEqual(S.recup, {}); assert.ok(Object.keys(S.cerrados).length >= 6);
+  assert.doesNotMatch(await texto(page), /pendientes esta semana/);
+});
+
+test('pendientes de la semana: lo que no estaba programado ese día o es anterior al inicio no cuenta', async ({ abrir }) => {
+  const ls = plan({ settings: { creado: '2026-10-19' } });   // empezó hoy: nada de la semana pasada es "pendiente"
+  const { page } = await abrir({ ls });
+  assert.doesNotMatch(await texto(page), /pendientes|Ayer no hiciste/);
 });

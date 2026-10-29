@@ -107,11 +107,11 @@
   const DEFAULTS = () => ({
     v: VERSION, listo: false, modo: 'registro',
     modulos: { ejercicio: false, pasos: false, agua: false, actividad: false, comida: false, medidas: false },
-    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
+    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
       ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', color: 'coral', informe: { periodo: 90, excluir: {} } },
-    ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, sensor: null
+    ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, recup: {}, cerrados: {}, sensor: null
   });
-  const CONOCIDAS = ['v', 'listo', 'modo', 'modulos', 'settings', 'ejercicios', 'sesiones', 'medidas', 'registros', 'days', 'comida', 'aero', 'molestias', 'sensor'];
+  const CONOCIDAS = ['v', 'listo', 'modo', 'modulos', 'settings', 'ejercicios', 'sesiones', 'medidas', 'registros', 'days', 'comida', 'aero', 'molestias', 'recup', 'cerrados', 'sensor'];
   const esObjeto = x => x && typeof x === 'object' && !Array.isArray(x);
   const guardarCopia = (clave, texto, pisar) => { try { if (pisar || localStorage.getItem(clave) === null) localStorage.setItem(clave, texto); } catch (e) { /* sin espacio */ } };
 
@@ -133,7 +133,7 @@
       if (esObjeto(r.modulos)) Object.keys(d.modulos).forEach(k => { if (typeof r.modulos[k] === 'boolean') d.modulos[k] = r.modulos[k]; });
       if (esObjeto(r.settings)) { Object.assign(d.settings, r.settings); if (!esObjeto(d.settings.informe)) d.settings.informe = DEFAULTS().settings.informe; if (!esObjeto(d.settings.informe.excluir)) d.settings.informe.excluir = {}; }
       ['ejercicios', 'sesiones', 'medidas', 'aero'].forEach(k => { if (Array.isArray(r[k])) d[k] = r[k].filter(esObjeto); });
-      ['registros', 'days', 'molestias'].forEach(k => { if (esObjeto(r[k])) d[k] = r[k]; });
+      ['registros', 'days', 'molestias', 'recup', 'cerrados'].forEach(k => { if (esObjeto(r[k])) d[k] = r[k]; });
       if (esObjeto(r.comida)) d.comida = { items: Array.isArray(r.comida.items) ? r.comida.items.filter(x => esObjeto(x) && x.id && x.n) : [], contadores: Array.isArray(r.comida.contadores) ? r.comida.contadores.filter(x => esObjeto(x) && x.id && x.n) : [] };
       if (esObjeto(r.sensor) && Number.isFinite(r.sensor.last)) d.sensor = { last: r.sensor.last, t: r.sensor.t || 0 };
       d.v = Math.max(VERSION, vOld);
@@ -361,7 +361,7 @@
     const n = new Date(); $('#topDate').textContent = `${n.getDate()}/${n.getMonth() + 1}`;
   }
   function go(t) { tab = t; render(); window.scrollTo(0, 0); }
-  const changed = () => { save(); render(); if (NATIVE) reprogramarSiCambio(); };
+  const changed = () => { consumirRecup(); save(); render(); if (NATIVE) reprogramarSiCambio(); };
   const AVISO_PIE = '<p class="foot">Ayuda personal para llevar tus hábitos: no reemplaza las indicaciones de tu médico ni de otros profesionales de la salud. Si te sentís mal, buscá atención médica.</p>';
 
   function tarjetaRespaldo() {
@@ -381,6 +381,23 @@
     return h;
   }
 
+  /* Rutinas de hoy en el dashboard: se habilitan a su hora; cada ejercicio desaparece al hacerlo (o al decir "hoy no") y quedan los pendientes. */
+  let abiertasHoy = new Set(), abiertosEj = new Set();
+  const rutinaHabilitada = se => { const n = new Date(); return !horaOk(se.hora) || minAviso(se.hora) <= n.getHours() * 60 + n.getMinutes() || abiertasHoy.has(se.id); };
+  const firmaHabil = () => (mod('ejercicio') ? sesionesDelDia(new Date()).map(se => (rutinaHabilitada(se) ? '1' : '0')).join('') : '');
+  function tarjetasRutinasHoy() {
+    if (!mod('ejercicio')) return '';
+    const k = hoy(), omitE = peek(k).omitEj || {};
+    return sesionesDelDia(new Date()).filter(se => ejDeSesion(se).length).map(se => {
+      const ejs = ejDeSesion(se), hechos = ejs.filter(e => progEj(e, k) >= metaEj(e)), saltados = ejs.filter(e => !hechos.includes(e) && omitE[e.id]), pend = ejs.filter(e => !hechos.includes(e) && !saltados.includes(e)), id = esc(se.id);
+      const titulo = `${esc(se.n)}${se.hora ? ' · ' + esc(se.hora) : ''}`;
+      if (!pend.length) return `<div class="card ok"><b>✅ ${titulo}</b><p>${saltados.length ? `Resuelta: ${hechos.length} hecho${hechos.length === 1 ? '' : 's'} y ${saltados.length} para otro día.` : '¡Rutina completa! 🎉'}</p></div>`;
+      if (!rutinaHabilitada(se)) return `<div class="card"><h3>🏋️ ${titulo}</h3><p class="muted">Se habilita a las ${esc(se.hora)}. ${pend.length} ejercicio${pend.length === 1 ? '' : 's'} para hoy.</p><button class="ghost mini" data-a="hoy-abrir" data-id="${id}">Empezar antes</button></div>`;
+      return `<div class="card"><h3>🏋️ ${titulo}</h3><p class="muted">${hechos.length + saltados.length} de ${ejs.length} resueltos. Tocá ✅ en cada uno cuando lo hagas.</p>
+        ${pend.map(e => `<div class="fila-ej"><div class="grow"><b>${esc(e.n)}</b><small>${esc(dosisEj(e))}</small>${avisoRecup(e)}</div><button class="pri mini" data-a="ej-ok" data-id="${esc(e.id)}" aria-label="Lo hice: ${esc(e.n)}">✅ Lo hice</button><button class="ghost mini" data-a="ej-no" data-id="${esc(e.id)}">Hoy no</button></div><details class="mas"><summary>Cómo hacerlo / contar</summary>${ejCard(e, k)}</details>`).join('')}
+        <div class="row" style="margin-top:10px"><button class="pri grow" data-a="ses-todo" data-id="${id}">✅ Lo hice todo</button><button class="ghost grow" data-a="ses-no" data-id="${id}">❌ No pude hoy</button></div></div>`;
+    }).join('');
+  }
   // Estado del contador de pasos a la vista (Android): activo, o qué falta para que cuente.
   function estadoPasos() {
     if (!NATIVE) return '';
@@ -400,23 +417,38 @@
     return `<h2>${DIAS[now.getDay()]} ${now.getDate()} de ${MESES[now.getMonth()]}</h2>${tarjetaRespaldo()}${tarjetasAvisos()}
     ${tarjetaPendientes(false)}
     <div class="card"><h3>Resumen del día</h3>${filas.join('') || '<p class="muted">Todavía no activaste ningún módulo. Hacelo en Ajustes.</p>'}</div>
+    ${tarjetasRutinasHoy()}
     ${tarjetaAguaPend()}
     ${mod('agua') ? `<div class="card"><h3>Agua</h3><div class="row"><button class="ghost grow" data-a="agua-">− ${s.vaso} ml</button><button class="pri grow" data-a="agua+">+ vaso (${s.vaso} ml)</button></div></div>` : ''}
-    ${mod('ejercicio') ? `<div class="card"><button class="pri" style="width:100%" data-a="tab" data-t="ejercicio">Ir a mi ejercicio</button></div>` : ''}
+    ${mod('ejercicio') ? `<div class="card"><button class="ghost" style="width:100%" data-a="tab" data-t="ejercicio">Ver todo mi ejercicio y mi evolución</button></div>` : ''}
     ${AVISO_PIE}`;
   }
 
-  // Lo que ayer quedó sin hacer (ejercicio salteado a mano o rutina completa marcada "No pude hoy"). Se muestra hoy, sin sumar repeticiones extra.
-  function pendientesAyer() {
-    const ay = ymd(sumarDias(new Date(), -1)), pe = peek(ay), ids = new Set(Object.keys(pe.omitEj || {}));
-    Object.keys(pe.omit || {}).forEach(sid => { const se = sesPorId(sid); if (se) ejDeSesion(se).forEach(e => ids.add(e.id)); });
-    return [...ids].map(ejPorId).filter(e => e && progEj(e, ay) < metaEj(e) && progEj(e, hoy()) < metaEj(e));
+  /* Pendientes de la semana: lo que no se hizo en los últimos 7 días. "Repartir" lo suma como recuperación (como máximo 1 unidad extra por
+     ejercicio y por día, y hasta 3 acumuladas: pensado para no cargar de más); "Dejarlo así" lo da por cerrado. */
+  const MAX_RECUP = 3;
+  const unidadExtra = e => (e.tipo === 'reps' ? Math.max(1, Math.round((e.meta || 0) * 0.2)) : 1);
+  const textoExtra = e => (e.tipo === 'reps' ? `${unidadExtra(e)} repeticiones más` : '1 serie más');
+  const recupHoy = e => Math.min(MAX_RECUP, (S.recup || {})[e.id] || 0) > 0 && !(peek().recupHecha || {})[e.id];
+  const avisoRecup = e => (recupHoy(e) ? `<small class="okTxt">Recuperás una pendiente: si querés, sumá ${textoExtra(e)} (opcional).</small>` : '');
+  function faltasSemana() {
+    const out = [], hoyD = new Date();
+    for (let i = 1; i <= 7; i++) {
+      const d = sumarDias(hoyD, -i), k = ymd(d); if (k < (S.settings.creado || '0000-00-00')) continue;
+      sesionesDelDia(d).forEach(se => ejDeSesion(se).forEach(e => { if (progEj(e, k) < metaEj(e) && !(S.cerrados || {})[k + '|' + e.id] && !out.some(x => x.k === k && x.e.id === e.id)) out.push({ k, e }); }));
+    }
+    return out.filter(x => progEj(x.e, hoy()) < metaEj(x.e));
+  }
+  function consumirRecup() { // al completar la unidad extra del día, se descuenta una pendiente (una vez por día y ejercicio)
+    S.ejercicios.forEach(e => { if (recupHoy(e) && progEj(e) >= metaEj(e) + unidadExtra(e)) { S.recup[e.id] = Math.max(0, (S.recup[e.id] || 0) - 1); const d = day(); d.recupHecha = d.recupHecha || {}; d.recupHecha[e.id] = true; } });
   }
   function tarjetaPendientes(conTarjetas) {
     if (!mod('ejercicio')) return '';
-    const p = pendientesAyer(); if (!p.length) return '';
+    const fal = faltasSemana(); if (!fal.length) return '';
+    const ids = [...new Set(fal.map(x => x.e.id))], p = ids.map(ejPorId), ay = ymd(sumarDias(new Date(), -1)), soloAyer = fal.every(x => x.k === ay);
     const hoyIds = new Set(sesionesDelDia(new Date()).flatMap(ejDeSesion).map(e => e.id));
-    return `<div class="card warn"><b>Ayer no hiciste: ${p.map(e => esc(e.n)).join(', ')}</b><p>Hoy podés hacerlo si te sentís bien. No hace falta compensar con más repeticiones: seguí con la dosis de siempre.</p></div>${conTarjetas ? p.filter(e => !hoyIds.has(e.id)).map(e => ejCard(e)).join('') : ''}`;
+    return `<div class="card warn"><b>${soloAyer ? 'Ayer no hiciste' : 'Te quedaron pendientes esta semana'}: ${p.map(e => esc(e.n)).join(', ')}</b><p>Hoy podés hacerlos si te sentís bien, con la dosis de siempre. Si querés, repartí lo pendiente en los próximos días: como máximo una serie (o una pequeña ronda) extra por ejercicio y por día.</p>
+      <div class="row"><button class="pri grow" data-a="rec-repartir">Repartir en la semana</button><button class="ghost grow" data-a="rec-dejar">Dejarlo así</button></div></div>${conTarjetas ? p.filter(e => !hoyIds.has(e.id)).map(e => ejCard(e)).join('') : ''}`;
   }
   function ejCard(e, f = hoy()) {
     const c = progEj(e, f), meta = metaEj(e), mol = S.molestias[e.id], id = esc(e.id), no = !!(peek(f).omitEj || {})[e.id];
@@ -430,7 +462,7 @@
         <div class="item-actions"><button class="pri mini" data-a="ej+" data-id="${id}">Serie hecha</button><button class="ghost mini" data-a="ej-" data-id="${id}" aria-label="Una menos">−</button>${e.tipo === 'tiempo' ? `<button class="ghost mini" data-a="timer" data-s="${e.seg}" data-l="${esc(e.n)}">⏱ ${e.seg} s</button>` : ''}</div>`;
     }
     return `<div class="item ${c >= meta && meta > 0 ? 'done' : ''} ${mol ? 'pain' : ''}">
-      <div class="item-main"><b>${esc(e.n)}</b>${fig}<small>${esc(dosisEj(e))}${e.nota ? ' — ' + esc(e.nota) : ''}</small>${mol ? '<small class="warnTxt">⚠ Marcado como molesto: salteálo o hacelo más suave, y consultalo con tu profesional.</small>' : ''}</div>
+      <div class="item-main"><b>${esc(e.n)}</b>${fig}<small>${esc(dosisEj(e))}${e.nota ? ' — ' + esc(e.nota) : ''}</small>${avisoRecup(e)}${mol ? '<small class="warnTxt">⚠ Marcado como molesto: salteálo o hacelo más suave, y consultalo con tu profesional.</small>' : ''}</div>
       ${ctl}${no ? `<small class="warnTxt">Hoy no lo hacés${conRecordatorios() ? ': mañana te lo recuerdo' : ': mañana te lo muestro como pendiente'}.</small>` : ''}
       <div class="item-actions" style="margin-top:6px">${c >= meta && meta > 0 ? '' : `<button class="pri mini" data-a="ej-ok" data-id="${id}">✅ Lo hice</button>`}<button class="ghost mini" data-a="mol" data-id="${id}">${mol ? 'Quitar marca' : 'Me molestó'}</button>${no ? `<button class="ghost mini" data-a="ej-no-x" data-id="${id}">Deshacer "hoy no"</button>` : (c >= meta && meta > 0 ? '' : `<button class="ghost mini" data-a="ej-no" data-id="${id}">Hoy no</button>`)}</div></div>`;
   }
@@ -438,7 +470,7 @@
     const k = ymd(f), ejs = ejDeSesion(s), omitE = peek(k).omitEj || {}, omit = (peek(k).omit || {})[s.id];
     const hechosL = ejs.filter(e => progEj(e, k) >= metaEj(e)), saltL = ejs.filter(e => progEj(e, k) < metaEj(e) && omitE[e.id]), pendL = ejs.filter(e => !hechosL.includes(e) && !saltL.includes(e));
     // Lo que ya está hecho (o salteado) se compacta y queda abajo: arriba solo lo que falta.
-    const compacto = (e, marca, txt) => `<details class="item compacto ${marca === '✅' ? 'done' : ''}"><summary>${marca} ${esc(e.n)}<small>${txt}</small></summary>${ejCard(e, k)}</details>`;
+    const compacto = (e, marca, txt) => `<details class="item compacto ${marca === '✅' ? 'done' : ''}" data-eid="${esc(e.id)}" ${abiertosEj.has(e.id) ? 'open' : ''}><summary>${marca} ${esc(e.n)}<small>${txt}</small></summary>${ejCard(e, k)}</details>`;
     return `<div class="card ${sesionHecha(s, k) ? 'ok' : ''}"><h3>${esc(s.n)}${s.hora ? ' · ' + esc(s.hora) : ''}</h3>
       <p>${hechosL.length} de ${ejs.length} ejercicios completos.${omit ? ' <span class="warnTxt">Marcaste que hoy no pudiste.</span>' : ''}${ejs.length && sesionHecha(s, k) ? ' <span class="okTxt">¡Rutina completa! 🎉</span>' : ''}</p>
       <div class="row"><button class="pri grow" data-a="ses-todo" data-id="${esc(s.id)}">✅ Lo hice todo</button><button class="ghost grow" data-a="ses-no" data-id="${esc(s.id)}">❌ No pude hoy</button></div>
@@ -591,6 +623,7 @@
       ${mod('pasos') ? campoNum('metaPasos', 'Meta de pasos por día', s.metaPasos, 'Ej: 8000') : ''}
       ${mod('actividad') ? campoNum('aeroMeta', 'Meta de actividad aeróbica (min por semana)', s.aeroMeta, 'Ej: 150') : ''}
       ${mod('ejercicio') ? campoNum('descansoSeg', 'Descanso entre series (segundos)', s.descansoSeg, '', 'required min="5"') : ''}
+      ${mod('ejercicio') ? `<label class="chk"><input type="checkbox" name="seguirOn" ${s.seguirOn !== false ? 'checked' : ''}>Preguntarme a la noche si hice mi rutina${conRecordatorios() ? '' : ' (activá un modo con recordatorios)'}</label><label for="s_seguirHora">Hora de la pregunta</label><input id="s_seguirHora" name="seguirHora" type="time" value="${esc(s.seguirHora || '21:00')}" required><small>No suena si ya marcaste todo. Lo que quede pendiente lo podés repartir en la semana.</small>` : ''}
       <label for="s_notas">Notas e indicaciones de mi profesional (van al informe)</label><textarea id="s_notas" name="notas" maxlength="1000" placeholder="Ej: lo que te indicó tu médico o kinesiólogo">${esc(s.notas || '')}</textarea>
       <div class="row" style="margin-top:10px"><button class="pri grow" type="submit">Guardar</button></div></form>`;
     const plan = !mod('ejercicio') ? '' : `<div class="card"><h3>Mi plan de ejercicio</h3><small>Armalo como te indicó tu profesional: rutinas con sus días y ejercicios con sus repeticiones.</small>
@@ -1005,10 +1038,15 @@
   const nombreEj = id => (ejPorId(id) || {}).n || '';
   document.addEventListener('click', e => {
     if (e.target.id === 'modal') return cerrarModal();
+    const dt = e.target.closest('details.compacto'); // el ejercicio plegado que estás usando queda abierto aunque se vuelva a dibujar la pantalla
+    if (dt && dt.dataset.eid) { if (e.target.closest('summary')) { if (dt.open) abiertosEj.delete(dt.dataset.eid); else abiertosEj.add(dt.dataset.eid); } else abiertosEj.add(dt.dataset.eid); }
     const b = e.target.closest('[data-a]'); if (!b) return;
     const a = b.dataset.a, id = b.dataset.id, k = b.dataset.k;
     switch (a) {
       case 'tab': go(b.dataset.t); break;
+      case 'rec-repartir': { const f = faltasSemana(); f.forEach(({ k, e }) => { S.recup[e.id] = Math.min(MAX_RECUP, (S.recup[e.id] || 0) + 1); S.cerrados[k + '|' + e.id] = true; }); changed(); toast(f.length ? 'Listo: te los voy sumando de a uno en tus próximas rutinas' : 'No había nada pendiente'); break; }
+      case 'rec-dejar': faltasSemana().forEach(({ k, e }) => { S.cerrados[k + '|' + e.id] = true; }); changed(); break;
+      case 'hoy-abrir': abiertasHoy.add(id); render(); break;
       case 'sub-ev': subEv = b.dataset.v; render(); break;
       case 'sub-h': subH = b.dataset.v; render(); break;
       case 'sub-m': subM = b.dataset.v; render(); break;
@@ -1149,8 +1187,10 @@
       if (f.elements.vaso) { const v = g('vaso'); if (!(v > 0 && v <= 2000)) n.err = 'El vaso debe estar entre 1 y 2000 ml.'; n.vaso = Math.round(v); }
       if (f.elements.recMin) { const v = g('recMin'); if (!(v >= 15 && v <= 720)) n.err = 'El recordatorio de agua va de 15 a 720 minutos.'; n.recMin = Math.round(v); }
       if (f.elements.descansoSeg) { const v = g('descansoSeg'); if (!(v >= 5 && v <= 600)) n.err = 'El descanso va de 5 a 600 segundos.'; n.descansoSeg = Math.round(v); }
+      if (f.elements.seguirHora && !horaOk(String(fd.get('seguirHora')))) n.err = 'Revisá la hora de la pregunta de la noche.';
       if (f.elements.aguaDesde && !(horaOk(String(fd.get('aguaDesde'))) && horaOk(String(fd.get('aguaHasta'))))) n.err = 'Revisá las horas del recordatorio de agua.';
       if (n.err) return toast(n.err);
+      if (f.elements.seguirOn) { s.seguirOn = fd.get('seguirOn') === 'on'; s.seguirHora = String(fd.get('seguirHora')); }
       Object.assign(s, n); s.notas = String(fd.get('notas') || '').slice(0, 1000); if (f.elements.recAgua) { s.recAgua = fd.get('recAgua') === 'on'; s.aguaDesde = String(fd.get('aguaDesde')); s.aguaHasta = String(fd.get('aguaHasta')); }
       setupReminders(); changed(); toast('Ajustes guardados');
     }
@@ -1200,6 +1240,10 @@
         if (mod('medidas')) S.medidas.slice(0, 50).forEach((m, i) => { if (m.recordarHora && horaOk(m.recordarHora)) diario(2000 + i, m.recordarHora, `${m.n}: hora de medir`, 'Anotá el valor en A Mi Ritmo.', medidaHoy(m)); });
         if (mod('ejercicio')) S.sesiones.slice(0, 80).forEach((se, i) => { if (se.hora && horaOk(se.hora)) (se.dias || []).forEach(d => { const [hh, mm] = se.hora.split(':').map(Number); list.push({ id: 3000 + i * 10 + d, title: `🏋️ ${se.n}`, body: 'Es hora de tu rutina. Después marcá lo que hiciste.', channelId: 'recordatorios', schedule: d === ahora.getDay() && sesionCumplidaHoy(se) ? { at: proximo(hh, mm, 7), repeats: true, every: 'week', allowWhileIdle: true } : { on: { weekday: d + 1, hour: hh, minute: mm }, allowWhileIdle: true } }); }); });
       }
+      if (conRecordatorios() && mod('ejercicio') && s.seguirOn !== false && horaOk(s.seguirHora)) {
+        const [sh, sm] = s.seguirHora.split(':').map(Number), resueltas = sesionesDelDia(ahora).filter(se => ejDeSesion(se).length).every(sesionCumplidaHoy);
+        for (let d = 0; d < 7; d++) if (S.sesiones.some(se => (se.dias || []).includes(d) && ejDeSesion(se).length)) list.push({ id: 3600 + d, title: '🏋️ ¿Hiciste tu rutina de hoy?', body: 'Abrí A Mi Ritmo y marcá lo que hiciste, o tocá "No pude hoy". Lo pendiente lo podés repartir en la semana.', channelId: 'recordatorios', schedule: d === ahora.getDay() && resueltas ? { at: proximo(sh, sm, 7), repeats: true, every: 'week', allowWhileIdle: true } : { on: { weekday: d + 1, hour: sh, minute: sm }, allowWhileIdle: true } });
+      }
       if (!list.length) return;
       let perm = await N.checkPermissions();
       if (perm.display !== 'granted') perm = await N.requestPermissions();
@@ -1245,6 +1289,8 @@
 
   document.addEventListener('visibilitychange', () => { if (document.hidden) save(); else if (NATIVE) syncSensor(false); });
   window.addEventListener('pagehide', save);
+  let sigHabil = firmaHabil();
+  setInterval(() => { const f = firmaHabil(); if (f !== sigHabil) { sigHabil = f; if (tab === 'hoy' && !wiz) render(); } }, 30000);   // al llegar la hora de una rutina, su tarjeta se habilita sola
 
   // Bienvenida animada con el aviso: se lee unos segundos y se va sola (o al tocarla); después entra el dashboard.
   function iniciarBienvenida() {

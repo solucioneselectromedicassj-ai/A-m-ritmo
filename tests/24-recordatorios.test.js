@@ -27,7 +27,7 @@ test('modo "recordatorios": agua, medición y rutinas con hora (y solo lo activa
   assert.deepStrictEqual(n.find(x => x.id === 2000).schedule.on, { hour: 9, minute: 15 });
   assert.match(n.find(x => x.id === 2000).title, /Presión arterial: hora de medir/);
   // rutina "Mañana" lun/mié/vie 07:30 → weekday 2, 4, 6 (domingo = 1)
-  assert.deepStrictEqual(n.filter(x => x.id >= 3000).map(x => [x.id, x.schedule.on.weekday, x.schedule.on.hour, x.schedule.on.minute]), [[3001, 2, 7, 30], [3003, 4, 7, 30], [3005, 6, 7, 30]]);
+  assert.deepStrictEqual(n.filter(x => x.id >= 3000 && x.id < 3600).map(x => [x.id, x.schedule.on.weekday, x.schedule.on.hour, x.schedule.on.minute]), [[3001, 2, 7, 30], [3003, 4, 7, 30], [3005, 6, 7, 30]]);
   assert.ok(!ids.includes(2001), 'la medición sin hora no recuerda');
   assert.ok(!n.some(x => /Sin hora/.test(x.title)), 'la rutina sin hora no recuerda');
 });
@@ -43,7 +43,7 @@ test('los módulos desactivados no recuerdan y se cancelan los viejos (conservan
   const ll = await llamadas(page);
   assert.deepStrictEqual(JSON.parse(ll.find(x => x[1] === 'cancel')[2])[0].notifications.map(n => n.id).sort(), [1000, 2000]);
   const ids = (await programadas(page)).map(x => x.id);
-  assert.deepStrictEqual(ids, [3001, 3003, 3005]);
+  assert.deepStrictEqual(ids, [3001, 3003, 3005, 3601, 3603, 3605], 'rutinas + la pregunta de la noche');
 });
 
 test('cambiar el modo en Ajustes reprograma', async ({ abrir }) => {
@@ -169,4 +169,26 @@ test('Probar un aviso ahora: pide el permiso y programa una notificación a los 
   const b = await abrir({ ls: plan('registro'), native: { LocalNotifications: { getPending: '() => ({notifications:[]})', checkPermissions: '() => ({display:"denied"})', requestPermissions: '() => ({display:"denied"})' } } });
   await ir(b.page, 'ajustes'); await b.page.click('[data-a=probar-aviso]'); await b.page.waitForTimeout(200);
   assert.match(await b.page.innerText('#toast'), /Android bloqueó las notificaciones/);
+});
+
+test('pregunta de la noche: "¿Hiciste tu rutina de hoy?" a la hora elegida y solo en los días con ejercicios', async ({ abrir }) => {
+  const { page } = await abrir({ ls: plan('recordatorios', { settings: { creado: '2026-10-01', seguirHora: '20:30' } }), native: nativo() });
+  await page.waitForTimeout(300);
+  const q = (await prog(page)).filter(x => x.id >= 3600 && x.id < 3700);
+  assert.deepStrictEqual(q.map(x => [x.id, x.schedule.on.weekday, x.schedule.on.hour, x.schedule.on.minute]), [[3601, 2, 20, 30], [3603, 4, 20, 30], [3605, 6, 20, 30]]);
+  assert.match(q[0].title, /¿Hiciste tu rutina de hoy\?/);
+});
+
+test('pregunta de la noche: no suena si hoy ya marcaste todo, y se puede apagar desde Ajustes', async ({ abrir }) => {
+  const hecho = plan('recordatorios', { days: { '2026-10-19': { ej: { e1: 10 } } } });
+  const a = await abrir({ ls: hecho, native: nativo() });
+  await a.page.waitForTimeout(300);
+  const lun = (await prog(a.page)).find(x => x.id === 3601);
+  assert.ok(lun.schedule.at && lun.schedule.every === 'week', 'hoy ya cumplido: pasa a la semana próxima'); assert.ok((await prog(a.page)).find(x => x.id === 3603).schedule.on);
+  const b = await abrir({ ls: plan('recordatorios'), native: nativo() });
+  await ir(b.page, 'ajustes'); await b.page.uncheck('[name=seguirOn]'); await b.page.click('form[data-f=metas] button[type=submit]'); await b.page.waitForTimeout(300);
+  assert.strictEqual((await estado(b.page)).settings.seguirOn, false);
+  assert.ok(!(await prog(b.page)).some(x => x.id >= 3600 && x.id < 3700), 'apagada: no se programa');
+  await b.page.check('[name=seguirOn]'); await b.page.fill('#s_seguirHora', '22:15'); await b.page.click('form[data-f=metas] button[type=submit]'); await b.page.waitForTimeout(300);
+  const n = (await prog(b.page)).find(x => x.id === 3601); assert.deepStrictEqual([n.schedule.on.hour, n.schedule.on.minute], [22, 15]);
 });
