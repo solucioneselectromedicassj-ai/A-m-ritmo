@@ -78,6 +78,7 @@
   const esEjEspalda = e => !!e && grupoBib({ fig: e.fig }) === 'espalda';
   const mezclaEspalda = se => { const l = ejDeSesion(se); return l.some(esEjEspalda) && l.some(e => !esEjEspalda(e)); };
   const agregarEjemplo = (b, se) => { const e = { id: uid('e'), fig: b.fig, n: b.n, tipo: b.tipo, nota: b.nota }; ['meta', 'series', 'reps', 'seg'].forEach(k => { if (b[k] != null) e[k] = b[k]; }); S.ejercicios.push(e); se.ej.push(e.id); };
+  const CONTADORES_SUG = ['Fruta (porciones)', 'Pescado', 'Verduras (porciones)', 'Legumbres'];
   const SUGERENCIAS_COMIDA = ['Verduras en el almuerzo', 'Verduras en la cena', 'Sin frituras', 'Sin gaseosas ni jugos azucarados', 'Fruta del día', 'Legumbres o cereales integrales'];
   /* Colores de la app (solo apariencia). Cada uno: [claro: pri, soft, c1], [oscuro: pri, soft, texto sobre pri, c1] */
   const COLORES = {
@@ -107,11 +108,11 @@
   const DEFAULTS = () => ({
     v: VERSION, listo: false, modo: 'registro',
     modulos: { ejercicio: false, pasos: false, agua: false, actividad: false, comida: false, medidas: false },
-    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
+    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, recPasosOn: true, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
       ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', color: 'coral', informe: { periodo: 90, excluir: {} } },
-    ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, recup: {}, cerrados: {}, sensor: null
+    ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, recup: {}, cerrados: {}, recordatorios: [], sensor: null
   });
-  const CONOCIDAS = ['v', 'listo', 'modo', 'modulos', 'settings', 'ejercicios', 'sesiones', 'medidas', 'registros', 'days', 'comida', 'aero', 'molestias', 'recup', 'cerrados', 'sensor'];
+  const CONOCIDAS = ['v', 'listo', 'modo', 'modulos', 'settings', 'ejercicios', 'sesiones', 'medidas', 'registros', 'days', 'comida', 'aero', 'molestias', 'recup', 'cerrados', 'recordatorios', 'sensor'];
   const esObjeto = x => x && typeof x === 'object' && !Array.isArray(x);
   const guardarCopia = (clave, texto, pisar) => { try { if (pisar || localStorage.getItem(clave) === null) localStorage.setItem(clave, texto); } catch (e) { /* sin espacio */ } };
 
@@ -132,7 +133,7 @@
       if (MODOS.some(m => m[0] === r.modo)) d.modo = r.modo;
       if (esObjeto(r.modulos)) Object.keys(d.modulos).forEach(k => { if (typeof r.modulos[k] === 'boolean') d.modulos[k] = r.modulos[k]; });
       if (esObjeto(r.settings)) { Object.assign(d.settings, r.settings); if (!esObjeto(d.settings.informe)) d.settings.informe = DEFAULTS().settings.informe; if (!esObjeto(d.settings.informe.excluir)) d.settings.informe.excluir = {}; }
-      ['ejercicios', 'sesiones', 'medidas', 'aero'].forEach(k => { if (Array.isArray(r[k])) d[k] = r[k].filter(esObjeto); });
+      ['ejercicios', 'sesiones', 'medidas', 'aero', 'recordatorios'].forEach(k => { if (Array.isArray(r[k])) d[k] = r[k].filter(esObjeto); });
       ['registros', 'days', 'molestias', 'recup', 'cerrados'].forEach(k => { if (esObjeto(r[k])) d[k] = r[k]; });
       if (esObjeto(r.comida)) d.comida = { items: Array.isArray(r.comida.items) ? r.comida.items.filter(x => esObjeto(x) && x.id && x.n) : [], contadores: Array.isArray(r.comida.contadores) ? r.comida.contadores.filter(x => esObjeto(x) && x.id && x.n) : [] };
       if (esObjeto(r.sensor) && Number.isFinite(r.sensor.last)) d.sensor = { last: r.sensor.last, t: r.sensor.t || 0 };
@@ -337,7 +338,7 @@
   const limpiar = t => String(t || '').replace(/\s+/g, ' ').trim().slice(0, 80);
 
   /* ---------- Vistas ---------- */
-  let tab = 'hoy', subH = null, subM = null, subEv = 'semana', wiz = null;
+  let tab = 'hoy', subH = null, subM = null, subEv = 'semana', subEvP = 'semana', subEvA = 'semana', wiz = null;
   const selCampo = {};
   const tabsActivas = () => {
     const t = [['hoy', '🏠', 'Hoy']];
@@ -556,6 +557,36 @@
     const now = new Date();
     return Array.from({ length: 7 }, (_, i) => { const x = sumarDias(now, i - 6); return { l: DIAS[x.getDay()].slice(0, 3), v: getter(ymd(x)) }; });
   }
+  /* Evolución de un valor diario (pasos, minutos de actividad) por semana (por día), mes y trimestre (por semana) y año (por mes). */
+  const PERIODOS = [['semana', 'Semana'], ['mes', 'Mes'], ['trimestre', 'Trimestre'], ['anio', 'Año']];
+  const TXT_PERIODO = { semana: 'los últimos 7 días', mes: 'las últimas 4 semanas', trimestre: 'las últimas 13 semanas', anio: 'los últimos 12 meses' };
+  function evolucionDiaria(per, getter, modo) { // modo 'prom' (promedio de los días con registro) o 'suma'
+    const hoyD = new Date(), desde = S.settings.creado || '0000-00-00', tramos = [];
+    if (per === 'semana') for (let i = 6; i >= 0; i--) { const d = sumarDias(hoyD, -i); tramos.push([d, d, DIAS[d.getDay()].slice(0, 3)]); }
+    else if (per === 'mes' || per === 'trimestre') for (let i = (per === 'mes' ? 4 : 13) - 1; i >= 0; i--) { const fin = sumarDias(hoyD, -7 * i), ini = sumarDias(fin, -6); tramos.push([ini, fin, `${ini.getDate()}/${ini.getMonth() + 1}`]); }
+    else for (let i = 11; i >= 0; i--) { const ini = new Date(hoyD.getFullYear(), hoyD.getMonth() - i, 1), fin = i === 0 ? hoyD : new Date(ini.getFullYear(), ini.getMonth() + 1, 0); tramos.push([ini, fin, MESES[ini.getMonth()].slice(0, 3)]); }
+    const tot = { sum: 0, con: 0, dias: 0, max: 0, vals: [] };
+    const items = tramos.map(([ini, fin, l]) => {
+      let sum = 0, con = 0, dias = 0;
+      for (let d = ini; d <= fin; d = sumarDias(d, 1)) { const k = ymd(d); if (k < desde) continue; dias++; const v = getter(k) || 0; sum += v; if (v > 0) { con++; tot.vals.push(v); tot.max = Math.max(tot.max, v); } }
+      tot.sum += sum; tot.con += con; tot.dias += dias;
+      return { l, v: modo === 'prom' ? (con ? Math.round(sum / con) : 0) : sum };
+    });
+    return { items, tot };
+  }
+  const pasosDe = k => peek(k).pasos || 0;
+  function tarjetaEvolucionPasos() {
+    const per = PERIODOS.some(p => p[0] === subEvP) ? subEvP : 'semana', ev = evolucionDiaria(per, pasosDe, 'prom'), meta = S.settings.metaPasos, t = ev.tot;
+    const alcanzo = meta ? t.vals.filter(v => v >= meta).length : null;
+    return `<div class="card"><h3>Tu evolución de pasos</h3>${segBtns(PERIODOS, per, 'sub-evp')}
+      ${t.con ? `<p>Promedio: <b>${Math.round(t.sum / t.con)} pasos por día</b> en ${TXT_PERIODO[per]} (${t.con} día${t.con === 1 ? '' : 's'} con registro). Mejor día: ${t.max}.${meta ? ` Llegaste a la meta en ${alcanzo} día${alcanzo === 1 ? '' : 's'}.` : ''}</p>${barras(ev.items, meta, 'Pasos por día (promedio), ' + TXT_PERIODO[per])}<small>${per === 'semana' ? 'Cada barra es un día.' : per === 'anio' ? 'Cada barra es el promedio diario de un mes.' : 'Cada barra es el promedio diario de una semana (empieza el día indicado).'}</small>` : `<p class="muted">Todavía no hay pasos registrados en ${TXT_PERIODO[per]}.</p>`}</div>`;
+  }
+  function tarjetaEvolucionAero() {
+    const per = PERIODOS.some(p => p[0] === subEvA) ? subEvA : 'semana', mapa = {}; S.aero.forEach(r => { if (r && typeof r.fecha === 'string') mapa[r.fecha] = (mapa[r.fecha] || 0) + (r.min || 0); });
+    const ev = evolucionDiaria(per, k => mapa[k] || 0, 'suma'), t = ev.tot, meta = S.settings.aeroMeta, semanas = Math.max(1, t.dias / 7);
+    return `<div class="card"><h3>Tu evolución de actividad</h3>${segBtns(PERIODOS, per, 'sub-eva')}
+      ${t.sum ? `<p>Total: <b>${t.sum} min</b> en ${TXT_PERIODO[per]}${per === 'semana' ? '' : ` · promedio ${Math.round(t.sum / semanas)} min por semana`}.${meta && per !== 'semana' && per !== 'anio' ? ` Meta semanal: ${meta} min.` : ''}</p>${barras(ev.items, per === 'mes' || per === 'trimestre' ? meta : null, 'Minutos de actividad, ' + TXT_PERIODO[per])}<small>${per === 'semana' ? 'Cada barra es un día.' : per === 'anio' ? 'Cada barra es el total de un mes.' : 'Cada barra es el total de una semana (empieza el día indicado).'}</small>` : `<p class="muted">Todavía no hay actividad registrada en ${TXT_PERIODO[per]}.</p>`}</div>`;
+  }
   function subPasos() {
     const d = peek(), s = S.settings;
     const sens = NATIVE ? `<div class="card"><h3>Pasos automáticos</h3>
@@ -573,7 +604,7 @@
     <div class="card"><h3>Cargar pasos a mano</h3><small>Útil para copiar el total de otra app o de tu pulsera.</small>
       <label for="pasosInput">Cantidad</label><input id="pasosInput" type="number" inputmode="numeric" min="0" max="100000" placeholder="Ej: 3500">
       <div class="row" style="margin-top:8px"><button class="ghost grow" data-a="pasos-add">Sumar</button><button class="ghost grow" data-a="pasos-set">Fijar total del día</button></div></div>
-    <div class="card"><h3>Últimos 7 días</h3>${barras(diasBarras(k => peek(k).pasos || 0), s.metaPasos, 'Pasos de los últimos 7 días')}</div>`;
+    ${tarjetaEvolucionPasos()}`;
   }
   function subAgua() {
     const d = peek(), s = S.settings;
@@ -592,19 +623,22 @@
       <label for="aTipo">Tipo</label><input id="aTipo" name="tipo" type="text" maxlength="40" placeholder="Ej: caminata, bici, natación">
       <div class="row" style="margin-top:10px"><button class="pri grow" type="submit">Guardar</button></div></form>
       <small>Los pasos del día no reemplazan estos minutos. Consultá con tu profesional qué intensidad es adecuada para vos.</small></div>
-    <div class="card"><h3>Últimas 8 semanas (minutos)</h3>${barras(ws.map(w => ({ l: fmtDia(w.x), v: w.min })), meta, 'Minutos de actividad por semana')}
-      ${prom ? `<small>Promedio semanal: <b>${prom.prom} min</b> (${prom.semanas} semana${prom.semanas === 1 ? '' : 's'} con datos).</small>` : '<small>Todavía no hay registros.</small>'}
+    ${tarjetaEvolucionAero()}
+    <div class="card"><h3>Mis últimos registros</h3>${prom ? `<small>Promedio semanal: <b>${prom.prom} min</b> (${prom.semanas} semana${prom.semanas === 1 ? '' : 's'} con datos).</small>` : '<small>Todavía no hay registros.</small>'}
       <ul class="list">${recientes.map(r => `<li><span>${fmtFecha(r.fecha)} · <b>${r.min} min</b>${r.tipo ? ' · ' + esc(r.tipo) : ''}</span>${delBtn('aero', r.i)}</li>`).join('')}</ul></div>`;
   }
   let sugSel = new Set();
   function subComida() {
     const items = S.comida.items, m = marcasDia(), c = cumplimientoSemana(lunesDe(new Date())), hechos = items.filter(it => m[it.id]).length;
-    if (!items.length && !S.comida.contadores.length) return `<div class="card"><h3>Tu checklist está vacío</h3><p>Armalo con lo que quieras seguir cada día. Tocá una sugerencia o agregá la tuya.</p>${SUGERENCIAS_COMIDA.map((t, i) => `<button class="chk-it ${sugSel.has(i) ? 'on' : ''}" data-a="com-sug" data-v="${i}" aria-pressed="${sugSel.has(i) ? 'true' : 'false'}"><span>${sugSel.has(i) ? '✅' : '⬜'}</span>${esc(t)}</button>`).join('')}<div class="row"><button class="pri grow" data-a="com-sug-ok" ${sugSel.size ? '' : 'disabled'}>Agregar ${sugSel.size ? 'las ' + sugSel.size + ' elegidas' : 'las elegidas'}</button><button class="ghost grow" data-a="com-add">Agregar ítem propio</button></div><small>Tocá todas las que quieras. Son ejemplos: elegí lo que te indicó tu profesional.</small></div>`;
+    if (!items.length && !S.comida.contadores.length) return `<div class="card"><h3>Tu checklist está vacío</h3><p>Armalo con lo que quieras seguir cada día. Tocá una sugerencia o agregá la tuya.</p>${SUGERENCIAS_COMIDA.map((t, i) => `<button class="chk-it ${sugSel.has(i) ? 'on' : ''}" data-a="com-sug" data-v="${i}" aria-pressed="${sugSel.has(i) ? 'true' : 'false'}"><span>${sugSel.has(i) ? '✅' : '⬜'}</span>${esc(t)}</button>`).join('')}<div class="row"><button class="pri grow" data-a="com-sug-ok" ${sugSel.size ? '' : 'disabled'}>Agregar ${sugSel.size ? 'las ' + sugSel.size + ' elegidas' : 'las elegidas'}</button><button class="ghost grow" data-a="com-add">Agregar ítem propio</button></div><h3 class="sub">O contá por día (se suma en la semana)</h3><div class="row">${CONTADORES_SUG.map(n => `<button class="ghost mini" data-a="ct-sug" data-v="${esc(n)}">➕ ${esc(n)}</button>`).join('')}</div><small>Tocá todas las que quieras. Son ejemplos: elegí lo que te indicó tu profesional.</small></div>`;
     return `<div class="card"><h3>Hoy</h3>${items.map(it => `<button class="chk-it ${m[it.id] ? 'on' : ''}" data-a="com-t" data-id="${esc(it.id)}" aria-pressed="${m[it.id] ? 'true' : 'false'}"><span>${m[it.id] ? '✅' : '⬜'}</span>${esc(it.n)}</button>`).join('') || '<p class="muted">Sin ítems diarios.</p>'}
       <small>Marcá cada ítem si lo cumpliste hoy (${hechos} de ${items.length}).</small></div>
     ${S.comida.contadores.map(ct => `<div class="card"><h3>${esc(ct.n)}</h3><div class="stepper"><button data-a="cont-" data-id="${esc(ct.id)}" aria-label="Una menos">−</button><span>${contDia(ct.id)}</span><button data-a="cont+" data-id="${esc(ct.id)}" aria-label="Una más">+</button></div>${meter('Esta semana (veces)', c.cont[ct.id] || 0, ct.meta)}</div>`).join('')}
     ${items.length ? `<div class="card"><h3>Cumplimiento de la semana</h3>${c.pct === null ? '<p class="muted">Sin datos todavía.</p>' : `<div class="big">${c.pct} %</div><div class="bar"><i style="width:${c.pct}%"></i></div><small>${c.ok} de ${c.tot} casilleros marcados en ${c.dias} día${c.dias === 1 ? '' : 's'} (lunes a hoy).</small>`}</div>` : ''}
-    <div class="card"><div class="row"><button class="ghost grow" data-a="com-add">Agregar ítem</button><button class="ghost grow" data-a="com-sugs">Sugerencias</button></div><small>También podés renombrar o quitar ítems en Ajustes → Alimentación.</small></div>`;
+    <div class="card"><div class="row"><button class="ghost grow" data-a="com-add">Agregar ítem</button><button class="ghost grow" data-a="com-sugs">Sugerencias</button></div>
+      ${CONTADORES_SUG.filter(n => !S.comida.contadores.some(x => x.n === n)).length ? `<h3 class="sub">Contar por día (se suma en la semana)</h3><div class="row">${CONTADORES_SUG.filter(n => !S.comida.contadores.some(x => x.n === n)).map(n => `<button class="ghost mini" data-a="ct-sug" data-v="${esc(n)}">➕ ${esc(n)}</button>`).join('')}<button class="ghost mini" data-a="ct-nuevo">➕ Otro</button></div>` : '<div class="row" style="margin-top:8px"><button class="ghost mini" data-a="ct-nuevo">➕ Otro contador</button></div>'}
+      <div class="row" style="margin-top:8px"><button class="ghost grow" data-a="rec-nuevo">🔔 Que me recuerde algo</button></div>
+      <small>También podés renombrar o quitar ítems en Ajustes → Alimentación.</small></div>`;
   }
 
   /* ---------- Ajustes ---------- */
@@ -620,7 +654,7 @@
         <label class="chk"><input type="checkbox" name="recAgua" ${s.recAgua ? 'checked' : ''}>Recordarme tomar agua${conRecordatorios() ? '' : ' (activá un modo con recordatorios)'}</label>
         <div class="grid2">${campoNum('recMin', 'Cada cuántos minutos', s.recMin, '', 'required min="15"')}<div></div></div>
         <div class="grid2"><div><label for="s_aguaDesde">Desde</label><input id="s_aguaDesde" name="aguaDesde" type="time" value="${esc(s.aguaDesde)}" required></div><div><label for="s_aguaHasta">Hasta</label><input id="s_aguaHasta" name="aguaHasta" type="time" value="${esc(s.aguaHasta)}" required></div></div>` : ''}
-      ${mod('pasos') ? campoNum('metaPasos', 'Meta de pasos por día', s.metaPasos, 'Ej: 8000') : ''}
+      ${mod('pasos') ? campoNum('metaPasos', 'Meta de pasos por día', s.metaPasos, 'Ej: 8000') + `<label class="chk"><input type="checkbox" name="recPasosOn" ${s.recPasosOn !== false ? 'checked' : ''}>Avisarme a la noche cómo voy con los pasos${conRecordatorios() ? '' : ' (activá un modo con recordatorios)'}</label><label for="s_recPasosHora">Hora del aviso de pasos</label><input id="s_recPasosHora" name="recPasosHora" type="time" value="${esc(s.recPasosHora || '20:00')}" required><small>No suena si ya llegaste a tu meta.</small>` : ''}
       ${mod('actividad') ? campoNum('aeroMeta', 'Meta de actividad aeróbica (min por semana)', s.aeroMeta, 'Ej: 150') : ''}
       ${mod('ejercicio') ? campoNum('descansoSeg', 'Descanso entre series (segundos)', s.descansoSeg, '', 'required min="5"') : ''}
       ${mod('ejercicio') ? `<label class="chk"><input type="checkbox" name="seguirOn" ${s.seguirOn !== false ? 'checked' : ''}>Preguntarme a la noche si hice mi rutina${conRecordatorios() ? '' : ' (activá un modo con recordatorios)'}</label><label for="s_seguirHora">Hora de la pregunta</label><input id="s_seguirHora" name="seguirHora" type="time" value="${esc(s.seguirHora || '21:00')}" required><small>No suena si ya marcaste todo. Lo que quede pendiente lo podés repartir en la semana.</small>` : ''}
@@ -654,7 +688,10 @@
       <input id="fileIn" type="file" accept="application/json,.json" hidden></div>
     <div class="card"><h3>Acerca de A Mi Ritmo</h3><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. A Mi Ritmo no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
       <div class="row"><button class="ghost grow" data-a="wiz-rehacer">Rehacer el asistente inicial</button></div></div>`;
-    return `<h2>Ajustes</h2>${modo}${mods}${colorCard}${metas}${plan}${meds}${com}${informe}${datos}`;
+    const recs = `<div class="card"><h3>Mis recordatorios</h3><small>Lo que quieras que te recuerde: una fruta, la medicación, estirar… Funcionan con los modos que incluyen recordatorios.</small>
+      <ul class="list">${S.recordatorios.map(r => `<li><span>🔔 ${esc(r.txt)}<small>${esc(fmtDiasSes(r.dias || []))} · ${esc(r.hora)}</small></span><span class="row"><button class="ghost mini" data-a="rec-edit" data-id="${esc(r.id)}">Editar</button><button class="dang mini" data-a="rec-del" data-id="${esc(r.id)}">Quitar</button></span></li>`).join('') || '<li class="muted">Todavía ninguno</li>'}</ul>
+      <div class="row"><button class="pri grow" data-a="rec-nuevo">Agregar recordatorio</button></div></div>`;
+    return `<h2>Ajustes</h2>${modo}${mods}${colorCard}${metas}${plan}${meds}${com}${recs}${informe}${datos}`;
   }
 
   /* ---------- Asistente inicial ---------- */
@@ -1016,6 +1053,22 @@
   function modalTexto(titulo, etiqueta, valor, onOk) {
     abrirModal(titulo, [{ k: 'n', t: 'text', l: etiqueta, v: valor, req: true }], v => (v.n ? onOk(v.n) : 'Escribí un texto.'));
   }
+  // Recordatorios propios: lo que la persona quiera que le recuerde, a la hora y los días que elija.
+  function modalRecordatorio(r) {
+    abrirModal(r ? 'Editar recordatorio' : 'Nuevo recordatorio', [
+      { k: 'txt', t: 'text', l: 'Qué querés que te recuerde', v: r ? r.txt : '', req: true, ph: 'Ej: Comer una fruta, tomar la medicación, estirar' },
+      { k: 'hora', t: 'time', l: 'A qué hora', v: r ? r.hora : '', req: true },
+      { k: 'dias', t: 'dias', l: 'Qué días', v: r ? r.dias : [0, 1, 2, 3, 4, 5, 6] }
+    ], v => {
+      v.txt = limpiar(v.txt).slice(0, 80);
+      if (!v.txt) return 'Escribí qué querés que te recuerde.';
+      if (!horaOk(v.hora)) return 'Elegí una hora válida.';
+      if (!v.dias.length) return 'Elegí al menos un día.';
+      if (r) { r.txt = v.txt; r.hora = v.hora; r.dias = v.dias; } else S.recordatorios.push({ id: uid('r'), txt: v.txt, hora: v.hora, dias: v.dias });
+      if (S.modo === 'registro' && confirm('Para que suene, tu modo de uso tiene que incluir recordatorios. ¿Lo activo ahora?')) S.modo = 'recordatorios';
+      setupReminders(); return undefined;
+    }, 'En el celular (app Android) suena aunque la app esté cerrada.');
+  }
   function modalContador(c) {
     abrirModal(c ? 'Editar contador semanal' : 'Nuevo contador semanal', [
       { k: 'n', t: 'text', l: 'Qué contás', v: c ? c.n : '', req: true, ph: 'Ej: Pescado, Legumbres, Fruta' },
@@ -1047,6 +1100,8 @@
       case 'rec-repartir': { const f = faltasSemana(); f.forEach(({ k, e }) => { S.recup[e.id] = Math.min(MAX_RECUP, (S.recup[e.id] || 0) + 1); S.cerrados[k + '|' + e.id] = true; }); changed(); toast(f.length ? 'Listo: te los voy sumando de a uno en tus próximas rutinas' : 'No había nada pendiente'); break; }
       case 'rec-dejar': faltasSemana().forEach(({ k, e }) => { S.cerrados[k + '|' + e.id] = true; }); changed(); break;
       case 'hoy-abrir': abiertasHoy.add(id); render(); break;
+      case 'sub-evp': subEvP = b.dataset.v; render(); break;
+      case 'sub-eva': subEvA = b.dataset.v; render(); break;
       case 'sub-ev': subEv = b.dataset.v; render(); break;
       case 'sub-h': subH = b.dataset.v; render(); break;
       case 'sub-m': subM = b.dataset.v; render(); break;
@@ -1097,6 +1152,10 @@
       case 'ci-ren': { const it = S.comida.items.find(x => x.id === id); if (it) modalTexto('Renombrar ítem', 'Nuevo nombre', it.n, n => { it.n = limpiar(n); }); break; }
       case 'ci-del': { const i = S.comida.items.findIndex(x => x.id === id); if (i >= 0 && confirm(`¿Quitar "${S.comida.items[i].n}" del checklist? Los días ya marcados no se borran.`)) { S.comida.items.splice(i, 1); changed(); } break; }
       case 'ct-nuevo': modalContador(null); break;
+      case 'ct-sug': if (b.dataset.v && !S.comida.contadores.some(x => x.n === b.dataset.v)) { S.comida.contadores.push({ id: uid('c'), n: b.dataset.v, meta: null }); changed(); toast('Agregado. Si querés una meta semanal, tocá Editar en Ajustes → Alimentación.'); } break;
+      case 'rec-nuevo': modalRecordatorio(null); break;
+      case 'rec-edit': modalRecordatorio(S.recordatorios.find(x => x.id === id)); break;
+      case 'rec-del': { const i = S.recordatorios.findIndex(x => x.id === id); if (i >= 0 && confirm(`¿Quitar el recordatorio "${S.recordatorios[i].txt}"?`)) { S.recordatorios.splice(i, 1); setupReminders(); changed(); } break; }
       case 'ct-edit': modalContador(S.comida.contadores.find(x => x.id === id)); break;
       case 'ct-del': { const i = S.comida.contadores.findIndex(x => x.id === id); if (i >= 0 && confirm(`¿Quitar "${S.comida.contadores[i].n}"?`)) { S.comida.contadores.splice(i, 1); changed(); } break; }
       case 'cont+': { const d = day(); d.cont = d.cont || {}; d.cont[id] = Math.min(99, (d.cont[id] || 0) + 1); changed(); break; }
@@ -1187,9 +1246,11 @@
       if (f.elements.vaso) { const v = g('vaso'); if (!(v > 0 && v <= 2000)) n.err = 'El vaso debe estar entre 1 y 2000 ml.'; n.vaso = Math.round(v); }
       if (f.elements.recMin) { const v = g('recMin'); if (!(v >= 15 && v <= 720)) n.err = 'El recordatorio de agua va de 15 a 720 minutos.'; n.recMin = Math.round(v); }
       if (f.elements.descansoSeg) { const v = g('descansoSeg'); if (!(v >= 5 && v <= 600)) n.err = 'El descanso va de 5 a 600 segundos.'; n.descansoSeg = Math.round(v); }
+      if (f.elements.recPasosHora && !horaOk(String(fd.get('recPasosHora')))) n.err = 'Revisá la hora del aviso de pasos.';
       if (f.elements.seguirHora && !horaOk(String(fd.get('seguirHora')))) n.err = 'Revisá la hora de la pregunta de la noche.';
       if (f.elements.aguaDesde && !(horaOk(String(fd.get('aguaDesde'))) && horaOk(String(fd.get('aguaHasta'))))) n.err = 'Revisá las horas del recordatorio de agua.';
       if (n.err) return toast(n.err);
+      if (f.elements.recPasosOn) { s.recPasosOn = fd.get('recPasosOn') === 'on'; s.recPasosHora = String(fd.get('recPasosHora')); }
       if (f.elements.seguirOn) { s.seguirOn = fd.get('seguirOn') === 'on'; s.seguirHora = String(fd.get('seguirHora')); }
       Object.assign(s, n); s.notas = String(fd.get('notas') || '').slice(0, 1000); if (f.elements.recAgua) { s.recAgua = fd.get('recAgua') === 'on'; s.aguaDesde = String(fd.get('aguaDesde')); s.aguaHasta = String(fd.get('aguaHasta')); }
       setupReminders(); changed(); toast('Ajustes guardados');
@@ -1213,9 +1274,10 @@
   }
   /* Lo que ya se cumplió hoy: su recordatorio de hoy no debe sonar (se mueve a la próxima vez). */
   const medidaHoy = m => (S.registros[m.id] || []).some(r => r && r.fecha === hoy());
+  const pasosCumplidos = () => !!(S.settings.metaPasos && (peek().pasos || 0) >= S.settings.metaPasos);
   const aguaCumplida = () => !!(S.settings.metaAgua && (peek().agua || 0) >= S.settings.metaAgua);
   const sesionCumplidaHoy = se => sesionHecha(se, hoy()) || !!(peek().omit || {})[se.id] || (ejDeSesion(se).length > 0 && ejDeSesion(se).every(e => progEj(e) >= metaEj(e) || (peek().omitEj || {})[e.id]));
-  const firmaCumplidos = () => [aguaCumplida() ? 'A' : '-', S.medidas.map(m => (medidaHoy(m) ? '1' : '0')).join(''), S.sesiones.map(se => (sesionCumplidaHoy(se) ? '1' : '0')).join(''), hoy()].join('|');
+  const firmaCumplidos = () => [aguaCumplida() ? 'A' : '-', pasosCumplidos() ? 'P' : '-', S.medidas.map(m => (medidaHoy(m) ? '1' : '0')).join(''), S.sesiones.map(se => (sesionCumplidaHoy(se) ? '1' : '0')).join(''), hoy()].join('|');
   let firmaProg = null, progT = null;
   function reprogramarSiCambio() {
     if (!conRecordatorios() || firmaCumplidos() === firmaProg) return;
@@ -1240,6 +1302,8 @@
         if (mod('medidas')) S.medidas.slice(0, 50).forEach((m, i) => { if (m.recordarHora && horaOk(m.recordarHora)) diario(2000 + i, m.recordarHora, `${m.n}: hora de medir`, 'Anotá el valor en A Mi Ritmo.', medidaHoy(m)); });
         if (mod('ejercicio')) S.sesiones.slice(0, 80).forEach((se, i) => { if (se.hora && horaOk(se.hora)) (se.dias || []).forEach(d => { const [hh, mm] = se.hora.split(':').map(Number); list.push({ id: 3000 + i * 10 + d, title: `🏋️ ${se.n}`, body: 'Es hora de tu rutina. Después marcá lo que hiciste.', channelId: 'recordatorios', schedule: d === ahora.getDay() && sesionCumplidaHoy(se) ? { at: proximo(hh, mm, 7), repeats: true, every: 'week', allowWhileIdle: true } : { on: { weekday: d + 1, hour: hh, minute: mm }, allowWhileIdle: true } }); }); });
       }
+      if (conRecordatorios()) S.recordatorios.slice(0, 50).forEach((r, i) => { if (horaOk(r.hora)) { const [rh, rm] = r.hora.split(':').map(Number); (r.dias || []).forEach(d => list.push({ id: 4000 + i * 10 + d, title: `🔔 ${r.txt}`, body: 'Recordatorio de A Mi Ritmo.', channelId: 'recordatorios', schedule: { on: { weekday: d + 1, hour: rh, minute: rm }, allowWhileIdle: true } })); } });
+      if (conRecordatorios() && mod('pasos') && s.recPasosOn !== false && horaOk(s.recPasosHora)) diario(3700, s.recPasosHora, '👣 ¿Cómo van tus pasos de hoy?', s.metaPasos ? `Tu meta es de ${s.metaPasos} pasos. Abrí A Mi Ritmo para ver cuántos llevás.` : 'Abrí A Mi Ritmo para ver cuántos llevás hoy.', pasosCumplidos());
       if (conRecordatorios() && mod('ejercicio') && s.seguirOn !== false && horaOk(s.seguirHora)) {
         const [sh, sm] = s.seguirHora.split(':').map(Number), resueltas = sesionesDelDia(ahora).filter(se => ejDeSesion(se).length).every(sesionCumplidaHoy);
         for (let d = 0; d < 7; d++) if (S.sesiones.some(se => (se.dias || []).includes(d) && ejDeSesion(se).length)) list.push({ id: 3600 + d, title: '🏋️ ¿Hiciste tu rutina de hoy?', body: 'Abrí A Mi Ritmo y marcá lo que hiciste, o tocá "No pude hoy". Lo pendiente lo podés repartir en la semana.', channelId: 'recordatorios', schedule: d === ahora.getDay() && resueltas ? { at: proximo(sh, sm, 7), repeats: true, every: 'week', allowWhileIdle: true } : { on: { weekday: d + 1, hour: sh, minute: sm }, allowWhileIdle: true } });

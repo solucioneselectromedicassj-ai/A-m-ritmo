@@ -36,9 +36,10 @@ test('44 px y sin desborde a 360 px en cada pestaña', async ({ abrir }) => {
 test('44 px y sin desborde en subpestañas de Hábitos y vistas de detalle', async ({ abrir }) => {
   const { page } = await abrir({ ls: completo() });
   await ir(page, 'habitos');
-  for (const b of await page.$$eval('#view .seg button', bs => bs.map((_, i) => i))) { await page.locator('#view .seg button').nth(b).click(); await revisar(page, 'hábitos ' + b); }
+  const sub = () => page.locator('#view .seg').first().locator('button');
+  for (const b of await sub().evaluateAll(bs => bs.map((_, i) => i))) { await sub().nth(b).click(); await revisar(page, 'hábitos ' + b); }
   await ir(page, 'medidas');
-  for (const b of await page.$$eval('#view .seg button', bs => bs.map((_, i) => i))) { await page.locator('#view .seg button').nth(b).click(); await revisar(page, 'medida ' + b); }
+  for (const b of await sub().evaluateAll(bs => bs.map((_, i) => i))) { await sub().nth(b).click(); await revisar(page, 'medida ' + b); }
 });
 
 test('44 px y sin desborde en las pantallas con plan vacío y en el asistente', async ({ abrir }) => {

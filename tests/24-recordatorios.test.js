@@ -192,3 +192,15 @@ test('pregunta de la noche: no suena si hoy ya marcaste todo, y se puede apagar 
   await b.page.check('[name=seguirOn]'); await b.page.fill('#s_seguirHora', '22:15'); await b.page.click('form[data-f=metas] button[type=submit]'); await b.page.waitForTimeout(300);
   const n = (await prog(b.page)).find(x => x.id === 3601); assert.deepStrictEqual([n.schedule.on.hour, n.schedule.on.minute], [22, 15]);
 });
+
+test('aviso diario de pasos: a la hora elegida, y no suena si ya llegó a la meta', async ({ abrir }) => {
+  const base1 = { modulos: { pasos: true }, settings: { creado: '2026-10-01', metaPasos: 8000, recPasosHora: '19:45' } };
+  const a = await abrir({ ls: plan('recordatorios', base1), native: nativo() });
+  await a.page.waitForTimeout(300);
+  const n = (await prog(a.page)).find(x => x.id === 3700); assert.deepStrictEqual([n.schedule.on.hour, n.schedule.on.minute], [19, 45]); assert.match(n.body, /Tu meta es de 8000 pasos/);
+  const b = await abrir({ ls: plan('recordatorios', Object.assign({}, base1, { days: { '2026-10-19': { pasos: 8500 } } })), native: nativo() });
+  await b.page.waitForTimeout(300);
+  const m = (await prog(b.page)).find(x => x.id === 3700); assert.ok(m.schedule.at && m.schedule.every === 'day', 'meta cumplida: el aviso de hoy no suena');
+  const c = await abrir({ ls: plan('recordatorios', Object.assign({}, base1, { settings: { creado: '2026-10-01', recPasosOn: false } })), native: nativo() });
+  await c.page.waitForTimeout(300); assert.ok(!(await prog(c.page)).some(x => x.id === 3700));
+});

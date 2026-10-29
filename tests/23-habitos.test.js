@@ -63,6 +63,7 @@ test('actividad: semana de lunes a domingo, sin meta por defecto, meta propia y 
   assert.match(await texto(page), /Promedio semanal: 140 min \(4 semanas con datos\)/);   // (100 + 200 + (150+60) + 50) / 4; el domingo 18 cuenta en la semana del 12/10
   await ir(page, 'ajustes'); await page.fill('#s_aeroMeta', '150'); await page.click('form[data-f=metas] button[type=submit]');
   await irHab(page); assert.match(await texto(page), /Actividad aeróbica 50 min \/ 150 min/); assert.match(await texto(page), /Te faltan 100 min/);
+  await page.click('[data-a=sub-eva][data-v=trimestre]');                      // por semana: ahí vale la meta semanal
   assert.match(await page.locator('svg.chart').textContent(), /Meta 150/);
 });
 
@@ -183,4 +184,31 @@ test('pasos (Android): si no dan el permiso se ve el aviso con botón "Activar" 
   assert.ok(!(await page.evaluate(() => window.__llamadas.map(x => x[1]))).includes('ensurePermission'), 'a la tercera apertura ya no insiste');
   await page.click('[data-a=sensor-sync]'); await page.waitForTimeout(300);
   assert.ok((await page.evaluate(() => window.__llamadas.map(x => x[1]))).includes('ensurePermission'), 'el botón vuelve a pedirlo');
+});
+
+test('evolución de pasos: semana, mes, trimestre y año con promedio por día y meta', async ({ abrir }) => {
+  const dias = { '2026-10-19': { pasos: 9000 }, '2026-10-18': { pasos: 7000 }, '2026-10-17': { pasos: 8000 }, '2026-10-05': { pasos: 4000 }, '2026-09-20': { pasos: 6000 } };
+  const { page, errores } = await abrir({ ls: con({ pasos: true }, { days: dias, settings: { creado: '2026-09-01', metaPasos: 8000 } }) });
+  await irHab(page);
+  let t = await texto(page);
+  assert.match(t, /Tu evolución de pasos/); assert.match(t, /Promedio: 8000 pasos por día en los últimos 7 días \(3 días con registro\)\. Mejor día: 9000\. Llegaste a la meta en 2 días\./);
+  assert.strictEqual(await page.locator('svg.chart rect.barra').count(), 7); assert.match(await page.locator('svg.chart').textContent(), /Meta 8000/);
+  for (const [v, n, rx] of [['mes', 4, /últimas 4 semanas \(4 días con registro\)/], ['trimestre', 13, /últimas 13 semanas \(5 días/], ['anio', 12, /últimos 12 meses \(5 días/]]) {
+    await page.click(`[data-a=sub-evp][data-v=${v}]`); assert.match(await texto(page), rx, v); assert.strictEqual(await page.locator('svg.chart rect.barra').count(), n, v);
+  }
+  assert.deepStrictEqual(errores, []);
+});
+
+test('evolución de pasos: sin registros no muestra gráfico; no cuenta días anteriores al inicio', async ({ abrir }) => {
+  const { page } = await abrir({ ls: con({ pasos: true }, { days: { '2026-09-01': { pasos: 5000 } }, settings: { creado: '2026-10-01' } }) });
+  await irHab(page); assert.match(await texto(page), /Todavía no hay pasos registrados en los últimos 7 días/); assert.strictEqual(await page.locator('svg.chart').count(), 0);
+});
+
+test('evolución de actividad: minutos por día, por semana (con meta) y por mes', async ({ abrir }) => {
+  const aero = [{ fecha: '2026-10-19', min: 30 }, { fecha: '2026-10-19', min: 20 }, { fecha: '2026-10-13', min: 150 }, { fecha: '2026-09-25', min: 90 }];
+  const { page } = await abrir({ ls: con({ actividad: true }, { aero, settings: { creado: '2026-09-01', aeroMeta: 150 } }) });
+  await irHab(page);
+  assert.match(await texto(page), /Total: 200 min en los últimos 7 días/); assert.strictEqual(await page.locator('svg.chart rect.barra').count(), 7);
+  await page.click('[data-a=sub-eva][data-v=mes]'); assert.match(await texto(page), /Total: 290 min en las últimas 4 semanas · promedio 73 min por semana\. Meta semanal: 150 min\./);
+  await page.click('[data-a=sub-eva][data-v=anio]'); assert.match(await texto(page), /Total: 290 min en los últimos 12 meses/); assert.doesNotMatch(await page.locator('svg.chart').textContent(), /Meta/);
 });
