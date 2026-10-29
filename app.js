@@ -108,7 +108,7 @@
   const DEFAULTS = () => ({
     v: VERSION, listo: false, modo: 'registro',
     modulos: { ejercicio: false, pasos: false, agua: false, actividad: false, comida: false, medidas: false },
-    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
+    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, avisoAceptado: 0, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
       ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', color: 'coral', informe: { periodo: 90, excluir: {} } },
     ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, recup: {}, cerrados: {}, recordatorios: [], sensor: null
   });
@@ -363,6 +363,8 @@
   }
   function go(t) { tab = t; render(); window.scrollTo(0, 0); }
   const changed = () => { consumirRecup(); save(); render(); if (NATIVE) reprogramarSiCambio(); };
+  const AVISO_TXT = 'A Mi Ritmo es una ayuda personal para llevar tus hábitos. No reemplaza las indicaciones de tu médico ni de otros profesionales de la salud, y no diagnostica ni indica tratamientos. Las metas y los límites los definís vos, idealmente con tu profesional. Si te sentís mal, buscá atención médica.';
+  const tarjetaAviso = () => (S.settings.avisoAceptado ? '' : `<div class="card warn"><b>Antes de empezar</b><p>${esc(AVISO_TXT)}</p><div class="row"><button class="pri grow" data-a="aviso-ok">Entendí y acepto</button></div></div>`);
   const AVISO_PIE = '<p class="foot">Ayuda personal para llevar tus hábitos: no reemplaza las indicaciones de tu médico ni de otros profesionales de la salud. Si te sentís mal, buscá atención médica.</p>';
 
   function tarjetaRespaldo() {
@@ -392,7 +394,7 @@
     return sesionesDelDia(new Date()).filter(se => ejDeSesion(se).length).map(se => {
       const ejs = ejDeSesion(se), hechos = ejs.filter(e => progEj(e, k) >= metaEj(e)), saltados = ejs.filter(e => !hechos.includes(e) && omitE[e.id]), pend = ejs.filter(e => !hechos.includes(e) && !saltados.includes(e)), id = esc(se.id);
       const titulo = `${esc(se.n)}${se.hora ? ' · ' + esc(se.hora) : ''}`;
-      if (!pend.length) return `<div class="card ok"><b>✅ ${titulo}</b><p>${saltados.length ? `Resuelta: ${hechos.length} hecho${hechos.length === 1 ? '' : 's'} y ${saltados.length} para otro día.` : '¡Rutina completa! 🎉'}</p></div>`;
+      if (!pend.length) return saltados.length ? `<div class="card"><b>${titulo}</b><p class="muted">Resuelta: ${hechos.length} hecho${hechos.length === 1 ? '' : 's'} y ${saltados.length} para otro día.</p></div>` : '';   // completa: el resumen ya lo dice (✅), sin tarjeta repetida
       if (!rutinaHabilitada(se)) return `<div class="card"><h3>🏋️ ${titulo}</h3><p class="muted">Se habilita a las ${esc(se.hora)}. ${pend.length} ejercicio${pend.length === 1 ? '' : 's'} para hoy.</p><button class="ghost mini" data-a="hoy-abrir" data-id="${id}">Empezar antes</button></div>`;
       return `<div class="card"><h3>🏋️ ${titulo}</h3><p class="muted">${hechos.length + saltados.length} de ${ejs.length} resueltos. Tocá ✅ en cada uno cuando lo hagas.</p>
         ${pend.map(e => `<div class="fila-ej"><div class="grow"><b>${esc(e.n)}</b><small>${esc(dosisEj(e))}</small>${avisoRecup(e)}</div><button class="pri mini" data-a="ej-ok" data-id="${esc(e.id)}" aria-label="Lo hice: ${esc(e.n)}">✅ Lo hice</button><button class="ghost mini" data-a="ej-no" data-id="${esc(e.id)}">Hoy no</button></div><details class="mas"><summary>Cómo hacerlo / contar</summary>${ejCard(e, k)}</details>`).join('')}
@@ -409,13 +411,13 @@
     const now = new Date(), k = hoy(), d = peek(), s = S.settings, filas = [];
     if (mod('ejercicio')) {
       const ses = sesionesDelDia(now), ejs = ses.flatMap(ejDeSesion), hechos = ejs.filter(e => progEj(e, k) >= metaEj(e)).length;
-      filas.push(ejs.length ? meter('Ejercicio de hoy', hechos, ejs.length) : '<small>Ejercicio: hoy no tenés rutina programada.</small>');
+      filas.push(ejs.length ? meter('Ejercicio de hoy' + (hechos === ejs.length ? ' ✅ ¡completo!' : ''), hechos, ejs.length) : '<small>Ejercicio: hoy no tenés rutina programada.</small>');
     }
     if (mod('pasos')) filas.push(meter('Pasos', d.pasos || 0, s.metaPasos) + estadoPasos());
     if (mod('agua')) filas.push(meter('Agua', d.agua || 0, s.metaAgua, 'ml'));
     if (mod('actividad')) filas.push(meter('Actividad de la semana', minSemana(claveSemana(now)), s.aeroMeta, 'min'));
     if (mod('comida')) filas.push(meter('Alimentación de hoy', S.comida.items.filter(it => marcasDia()[it.id]).length, S.comida.items.length));
-    return `<h2>${DIAS[now.getDay()]} ${now.getDate()} de ${MESES[now.getMonth()]}</h2>${tarjetaRespaldo()}${tarjetasAvisos()}
+    return `<h2>${DIAS[now.getDay()]} ${now.getDate()} de ${MESES[now.getMonth()]}</h2>${tarjetaAviso()}${tarjetaRespaldo()}${tarjetasAvisos()}
     ${tarjetaPendientes(false)}
     <div class="card"><h3>Resumen del día</h3>${filas.join('') || '<p class="muted">Todavía no activaste ningún módulo. Hacelo en Ajustes.</p>'}</div>
     ${tarjetasRutinasHoy()}
@@ -686,6 +688,7 @@
       <div class="row" style="margin-top:8px"><button class="ghost grow" data-a="import">Importar respaldo</button><button class="dang grow" data-a="borrar">Borrar todo</button></div>
       <small>"Importar respaldo" también acepta el respaldo de Salud Activa: lo convierte y no pierde nada.</small>
       <input id="fileIn" type="file" accept="application/json,.json" hidden></div>
+    <div class="card ${s.avisoAceptado ? '' : 'warn'}"><h3>Aviso importante</h3><p>${esc(AVISO_TXT)}</p>${s.avisoAceptado ? `<small>Lo aceptaste el ${fmtFecha(ymd(new Date(s.avisoAceptado)))}.</small>` : '<div class="row"><button class="pri grow" data-a="aviso-ok">Entendí y acepto</button></div>'}</div>
     <div class="card"><h3>Acerca de A Mi Ritmo</h3><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. A Mi Ritmo no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
       <div class="row"><button class="ghost grow" data-a="wiz-rehacer">Rehacer el asistente inicial</button></div></div>`;
     const recs = `<div class="card"><h3>Mis recordatorios</h3><small>Lo que quieras que te recuerde: una fruta, la medicación, estirar… Funcionan con los modos que incluyen recordatorios.</small>
@@ -1099,6 +1102,7 @@
       case 'tab': go(b.dataset.t); break;
       case 'rec-repartir': { const f = faltasSemana(); f.forEach(({ k, e }) => { S.recup[e.id] = Math.min(MAX_RECUP, (S.recup[e.id] || 0) + 1); S.cerrados[k + '|' + e.id] = true; }); changed(); toast(f.length ? 'Listo: te los voy sumando de a uno en tus próximas rutinas' : 'No había nada pendiente'); break; }
       case 'rec-dejar': faltasSemana().forEach(({ k, e }) => { S.cerrados[k + '|' + e.id] = true; }); changed(); break;
+      case 'aviso-ok': S.settings.avisoAceptado = Date.now(); changed(); toast('Gracias. Lo podés releer en Ajustes.'); break;
       case 'hoy-abrir': abiertasHoy.add(id); render(); break;
       case 'sub-evp': subEvP = b.dataset.v; render(); break;
       case 'sub-eva': subEvA = b.dataset.v; render(); break;
@@ -1363,8 +1367,11 @@
     let ido = false; const t0 = Date.now();
     const salir = () => { if (ido) return; ido = true; sp.classList.add('fuera'); document.body.classList.add('entrando'); setTimeout(() => sp.remove(), 650); setTimeout(() => document.body.classList.remove('entrando'), 2000); };
     sp.addEventListener('click', () => { if (Date.now() - t0 > 900) salir(); });
-    setTimeout(salir, 5600);
+    setTimeout(salir, 3800);
   }
+  // Android dibuja la app detrás de la barra de estado: se lee su alto (MainActivity lo expone) para que el título no quede tapado.
+  function leerInsets() { try { if (window.AndroidInsets) document.documentElement.style.setProperty('--inset-top', Number(window.AndroidInsets.top()) + 'px'); } catch (e) { /* sin datos: queda el mínimo del CSS */ } }
+  if (NATIVE) { document.body.classList.add('nativo'); leerInsets(); [300, 1200, 3000].forEach(t => setTimeout(leerInsets, t)); window.addEventListener('resize', leerInsets); }
   aplicarColor();
   iniciarBienvenida();
   render();
@@ -1373,5 +1380,5 @@
   else if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { });
 
   // Ganchos para pruebas automáticas.
-  window.SA = { state: () => S, render, go, chart, informeCuerpo, detectStep, step };
+  window.SA = { leerInsets, state: () => S, render, go, chart, informeCuerpo, detectStep, step };
 })();

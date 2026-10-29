@@ -272,7 +272,8 @@ test('Hoy: la rutina se habilita a su hora, cada ejercicio desaparece al marcarl
   await page.click('[data-a=ej-no][data-id=e2]');
   assert.deepStrictEqual(await filas(), ['Plancha']);
   await page.click('[data-a=ses-todo][data-id=s1]');
-  assert.deepStrictEqual(await filas(), []); assert.match(await texto(page), /✅ Mañana · 08:00/);
+  assert.deepStrictEqual(await filas(), []); const hoyT = await texto(page);
+  assert.match(hoyT, /Ejercicio de hoy ✅ ¡completo! 3 \/ 3/); assert.doesNotMatch(hoyT, /¡Rutina completa!/, 'sin tarjeta repetida: el resumen ya lo dice');
   assert.strictEqual((await estado(page)).days['2026-10-19'].ej.e3, 2);
 });
 
@@ -324,4 +325,9 @@ test('pendientes de la semana: lo que no estaba programado ese día o es anterio
   const ls = plan({ settings: { creado: '2026-10-19' } });   // empezó hoy: nada de la semana pasada es "pendiente"
   const { page } = await abrir({ ls });
   assert.doesNotMatch(await texto(page), /pendientes|Ayer no hiciste/);
+});
+
+test('Hoy: si algún ejercicio quedó "para otro día", la rutina resuelta lo aclara en una línea', async ({ abrir }) => {
+  const { page } = await abrir({ ls: plan({ days: { '2026-10-19': { ej: { e1: 30, e2: 2 }, omitEj: { e3: true } } } }) });
+  assert.match(await texto(page), /Resuelta: 2 hechos y 1 para otro día\./);
 });
