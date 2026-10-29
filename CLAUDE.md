@@ -30,7 +30,7 @@ index.html      shell + navegación dinámica (#nav) + modal (#modal)
 styles.css      tema claro/oscuro, mobile first
 app.js          toda la lógica (IIFE, sin dependencias)
 figuras.js      ilustraciones SVG de ejercicios (window.FIG(id)); un ejercicio de la biblioteca necesita su pose aquí
-sw.js           service worker (cache-first), CACHE = 'miplan-vN'
+sw.js           service worker (cache-first), CACHE = 'amiritmo-vN'
 manifest.json, icon.svg, icon-192.png, icon-512.png
 tests/          Playwright + Chromium: `npm test`
 capacitor.config.json, package.json, scripts/build-web.js   empaquetado Android
@@ -42,7 +42,7 @@ android/        proyecto Capacitor (appId ar.amiritmo.app), StepCounterPlugin + 
 ```
 { v, listo, modo, modulos:{ejercicio,pasos,agua,actividad,comida,medidas},
   settings:{ metaPasos, metaAgua, aeroMeta, vaso, descansoSeg, aguaDesde, aguaHasta, recAgua, recMin, segundoPlano, pasosPedido,
-            notas, color (azul|verde|violeta|naranja|rosa|gris), ultimoRespaldo, respaldoPospuesto, creado, informe:{periodo, excluir:{}} },
+            notas, color (coral|azul|verde|violeta|naranja|rosa|gris), ultimoRespaldo, respaldoPospuesto, creado, informe:{periodo, excluir:{}} },
   ejercicios:[{id,n,tipo:'reps'|'series'|'tiempo',meta|series,reps|seg,nota?,fig?}],
   sesiones:[{id,n,dias:[0-6],hora,ej:[ids]}],
   medidas:[{id,tipo,n,campos:[{k,n,u,r,opc,dec,min,max}],repetirMeses,recordarHora}],
@@ -78,3 +78,8 @@ Las pruebas usan fecha simulada (lunes 19/10/2026) y simulan los plugins de Capa
 - **Importar desde Salud Activa** (la app personal anterior): "Importar respaldo" detecta el JSON de Salud Activa (`esCopiaSaludActiva`) y lo convierte (`desdeSaludActiva`): ejercicios con ids `r_*`/`c_*`, dos rutinas con su agenda, mediciones `m_presion|peso|colesterol|spo2` con los límites que ya tenía la persona (presión: "por encima de" = umbral−1 porque allá avisaba con ≥; peso: objetivo ± tolerancia; LDL: meta; saturación: mínimo), todas las tomas del día (con `hora`), actividad, checklist y contador de pescado (`c_pescado`). La copia original completa queda en `importado` y lo anterior en `miplanV1_antes_importar`. No importa el sensor de pasos (evita contar doble).
 - **Rutinas por grupo**: los ejemplos de la biblioteca tienen grupo (`grupoBib`): general (de pie, todos los días) y espalda y core (lun/mié/vie). El asistente y "Desde la biblioteca" los ordenan solos en dos rutinas (`rutinaDeGrupo`, reutiliza la que ya tenga ese nombre); cada rutina tiene su propio botón "📅 Días y horario" en la pestaña Ejercicio. Si una rutina mezcla espalda con otros ejercicios, Ajustes ofrece "Separar espalda y core en su propia rutina".
 - **Pasos que cruzan la medianoche** (`repartirPasos`): si entre dos lecturas del sensor pasó la medianoche (sin lecturas de noche por Doze/ahorro de batería), lo contado se reparte entre los días según las horas de actividad (7–23) de cada uno; si todo el intervalo es de noche, según el tiempo. Antes iba entero al día nuevo y a la mañana se veían pasos de la noche anterior. Intervalos de más de 7 días van al día de la última lectura.
+
+## Identidad visual
+- Ícono nuevo (degradé de atardecer naranja→rosa→violeta con un pulso que termina en un punto: "mi ritmo"); `icon.svg`, `icon-*.png` y todos los `mipmap-*`/`splash.png` de Android se generan de ese SVG (render con Playwright). Color por defecto **coral** (el azul quedó como opción).
+- Bienvenida animada (`#splash`, `iniciarBienvenida`): logo que dibuja el pulso + el aviso "no reemplaza indicaciones médicas"; se va sola a los ~5,6 s o al tocarla (pasado 0,9 s) y el dashboard entra escalonado (`body.entrando`). Respeta `prefers-reduced-motion`. Las pruebas la desactivan con `window.__sinSplash` (solo `tests/30-bienvenida.test.js` la usa).
+- Estética: tarjetas redondeadas con sombra suave, botones con degradé (`--pri`→`--g2`), navegación inferior flotante tipo píldora. Variables en `:root` de `styles.css` (la paleta elegida en Ajustes las pisa desde `aplicarColor`).

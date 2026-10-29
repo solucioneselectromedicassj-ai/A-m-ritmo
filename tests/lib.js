@@ -44,6 +44,7 @@ async function abrir(opts = {}) {
     if (d.type() === 'prompt') return r === null ? d.dismiss() : d.accept(String(r));
     return r === false ? d.dismiss() : d.accept();
   });
+  if (!opts.splash) await page.addInitScript(() => { window.__sinSplash = true; });   // la bienvenida animada tapa la pantalla unos segundos: solo se prueba aparte
   await page.addInitScript(([fecha, ls]) => {
     const R = Date, base = R.parse(fecha), t0 = R.now();
     class D extends R {

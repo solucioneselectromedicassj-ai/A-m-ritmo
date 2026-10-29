@@ -81,7 +81,8 @@
   const SUGERENCIAS_COMIDA = ['Verduras en el almuerzo', 'Verduras en la cena', 'Sin frituras', 'Sin gaseosas ni jugos azucarados', 'Fruta del día', 'Legumbres o cereales integrales'];
   /* Colores de la app (solo apariencia). Cada uno: [claro: pri, soft, c1], [oscuro: pri, soft, texto sobre pri, c1] */
   const COLORES = {
-    azul: ['Azul', null],
+    coral: ['Coral', null],
+    azul: ['Azul', ['#1d4ed8', '#e4ebff', '#c2410c'], ['#7aa2ff', '#1b2748', '#0b1530', '#fb923c']],
     verde: ['Verde', ['#0f766e', '#e3f3f0', '#c2410c'], ['#2dd4bf', '#12302b', '#04201c', '#fb923c']],
     violeta: ['Violeta', ['#6d28d9', '#efe7ff', '#c2410c'], ['#b79cff', '#261b48', '#170b36', '#fb923c']],
     naranja: ['Naranja', ['#c2410c', '#ffe9dc', '#1d4ed8'], ['#fb923c', '#3a2112', '#2a1103', '#7aa2ff']],
@@ -89,10 +90,10 @@
     gris: ['Gris', ['#374151', '#e8ebf0', '#c2410c'], ['#cbd5e1', '#232b3b', '#0f172a', '#fb923c']]
   };
   function aplicarColor() {
-    const k = COLORES[S.settings.color] ? S.settings.color : 'azul', c = COLORES[k];
+    const k = COLORES[S.settings.color] ? S.settings.color : 'coral', c = COLORES[k];
     let st = document.getElementById('tema'); if (!st) { st = document.createElement('style'); st.id = 'tema'; document.head.appendChild(st); }
     st.textContent = c[1] ? `:root{--pri:${c[1][0]};--c0:${c[1][0]};--soft:${c[1][1]};--c1:${c[1][2]}}@media (prefers-color-scheme:dark){:root{--pri:${c[2][0]};--c0:${c[2][0]};--soft:${c[2][1]};--pri-fg:${c[2][2]};--c1:${c[2][3]}}}` : '';
-    const m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', c[1] ? c[1][0] : '#1d4ed8');
+    const m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', c[1] ? c[1][0] : '#d63f1f');
   }
   const MODOS = [
     ['registro', 'Solo registro', 'Anotás tus avances y nada más: sin recordatorios ni avisos.'],
@@ -106,8 +107,8 @@
   const DEFAULTS = () => ({
     v: VERSION, listo: false, modo: 'registro',
     modulos: { ejercicio: false, pasos: false, agua: false, actividad: false, comida: false, medidas: false },
-    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, pasosPedido: false, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
-      ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', color: 'azul', informe: { periodo: 90, excluir: {} } },
+    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
+      ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', color: 'coral', informe: { periodo: 90, excluir: {} } },
     ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, sensor: null
   });
   const CONOCIDAS = ['v', 'listo', 'modo', 'modulos', 'settings', 'ejercicios', 'sesiones', 'medidas', 'registros', 'days', 'comida', 'aero', 'molestias', 'sensor'];
@@ -380,13 +381,19 @@
     return h;
   }
 
+  // Estado del contador de pasos a la vista (Android): activo, o qué falta para que cuente.
+  function estadoPasos() {
+    if (!NATIVE) return '';
+    if (sensor.on) return `<small>👣 Contador activo${sensor.last ? ' · última lectura ' + pad(new Date(sensor.last).getHours()) + ':' + pad(new Date(sensor.last).getMinutes()) : ''}</small>`;
+    return `<div class="row" style="margin-top:6px"><small class="grow warnTxt">${esc(sensor.msg || 'El contador de pasos todavía no está activo.')}</small><button class="pri mini" data-a="sensor-sync">Activar</button></div>`;
+  }
   function viewHoy() {
     const now = new Date(), k = hoy(), d = peek(), s = S.settings, filas = [];
     if (mod('ejercicio')) {
       const ses = sesionesDelDia(now), ejs = ses.flatMap(ejDeSesion), hechos = ejs.filter(e => progEj(e, k) >= metaEj(e)).length;
       filas.push(ejs.length ? meter('Ejercicio de hoy', hechos, ejs.length) : '<small>Ejercicio: hoy no tenés rutina programada.</small>');
     }
-    if (mod('pasos')) filas.push(meter('Pasos', d.pasos || 0, s.metaPasos));
+    if (mod('pasos')) filas.push(meter('Pasos', d.pasos || 0, s.metaPasos) + estadoPasos());
     if (mod('agua')) filas.push(meter('Agua', d.agua || 0, s.metaAgua, 'ml'));
     if (mod('actividad')) filas.push(meter('Actividad de la semana', minSemana(claveSemana(now)), s.aeroMeta, 'min'));
     if (mod('comida')) filas.push(meter('Alimentación de hoy', S.comida.items.filter(it => marcasDia()[it.id]).length, S.comida.items.length));
@@ -573,8 +580,8 @@
   function viewAjustes() {
     const s = S.settings;
     const campoNum = (n, l, v, ph, extra = '') => `<div><label for="s_${n}">${l}</label><input id="s_${n}" name="${n}" type="number" inputmode="decimal" step="any" value="${v == null ? '' : v}" placeholder="${esc(ph || '')}" ${extra}></div>`;
-    const modo = `<div class="card"><h3>Modo de uso</h3>${MODOS.map(([k, n, t]) => `<button class="opcion ${S.modo === k ? 'on' : ''}" data-a="modo" data-v="${k}" aria-pressed="${S.modo === k ? 'true' : 'false'}"><b>${n}</b><small>${t}</small></button>`).join('')}${NATIVE ? '' : '<small>Los recordatorios con la app cerrada funcionan en la app Android.</small>'}</div>`;
-    const colorCard = `<div class="card"><h3>Color de la app</h3><div class="colores">${Object.keys(COLORES).map(k => `<button class="color ${(COLORES[s.color] ? s.color : 'azul') === k ? 'on' : ''}" data-a="color" data-v="${k}" aria-pressed="${(COLORES[s.color] ? s.color : 'azul') === k ? 'true' : 'false'}"><i class="sw sw-${k}"></i>${COLORES[k][0]}</button>`).join('')}</div></div>`;
+    const modo = `<div class="card"><h3>Modo de uso</h3>${MODOS.map(([k, n, t]) => `<button class="opcion ${S.modo === k ? 'on' : ''}" data-a="modo" data-v="${k}" aria-pressed="${S.modo === k ? 'true' : 'false'}"><b>${n}</b><small>${t}</small></button>`).join('')}${NATIVE ? '<div class="row" style="margin-top:8px"><button class="ghost grow" data-a="probar-aviso">🔔 Probar un aviso ahora</button></div>' : ''}${NATIVE ? '' : '<small>Los recordatorios con la app cerrada funcionan en la app Android.</small>'}</div>`;
+    const colorCard = `<div class="card"><h3>Color de la app</h3><div class="colores">${Object.keys(COLORES).map(k => `<button class="color ${(COLORES[s.color] ? s.color : 'coral') === k ? 'on' : ''}" data-a="color" data-v="${k}" aria-pressed="${(COLORES[s.color] ? s.color : 'coral') === k ? 'true' : 'false'}"><i class="sw sw-${k}"></i>${COLORES[k][0]}</button>`).join('')}</div></div>`;
     const mods = `<div class="card"><h3>Qué querés seguir</h3>${MODULOS.map(([k, ic, n]) => `<label class="chk"><input type="checkbox" data-a="mod-t" data-k="${k}" ${mod(k) ? 'checked' : ''}>${ic} ${n}</label>`).join('')}<small>Si desactivás algo, lo que cargaste se conserva.</small></div>`;
     const metas = `<form data-f="metas" class="card"><h3>Metas y recordatorios</h3><small>Todas son opcionales y las definís vos (con tu profesional, si corresponde). Dejá vacío para no tener meta.</small>
       ${mod('agua') ? `<div class="grid2">${campoNum('metaAgua', 'Meta de agua (ml/día)', s.metaAgua, 'Ej: 2000')}${campoNum('vaso', 'Tamaño del vaso (ml)', s.vaso, '', 'required min="1"')}</div>
@@ -707,6 +714,8 @@
       if (!(await conTiempo(P.isAvailable(), 10000)).available) { sensor.on = false; sensor.msg = 'Este teléfono no tiene sensor contador de pasos. Podés cargar los pasos a mano.'; return refreshPasos(); }
       let g = (await conTiempo(P.hasPermission(), 10000)).granted;
       if (!g && pedir) { sensor.msg = 'Pidiendo permiso de actividad física…'; refreshPasos(); g = (await conTiempo(P.ensurePermission(), 120000)).granted; }
+      if (!g && pedir) { S.settings.pasosRechazos = (S.settings.pasosRechazos || 0) + 1; save(); }
+      if (g) { S.settings.pasosRechazos = 0; }
       if (!g) { sensor.on = false; sensor.msg = pedir ? 'No diste el permiso. Activalo en Ajustes del teléfono → Apps → A Mi Ritmo → Permisos → Actividad física.' : 'Tocá "Activar contador de pasos" para empezar.'; return refreshPasos(); }
       let lecturas = [];
       try { lecturas = ((await conTiempo(P.drain(), 10000)).readings || []).filter(l => l && Number.isFinite(l.t) && Number.isFinite(l.c)); } catch (e) { /* sin lecturas en segundo plano */ }
@@ -718,10 +727,11 @@
       save(); refreshPasos();
     } catch (e) { sensor.on = false; sensor.msg = `No se pudo leer el contador de pasos (${esc((e && (e.message || e)) || 'error')}).`; refreshPasos(); }
   }
-  // Primera vez con el módulo de pasos: pide el permiso solo, para que la persona no tenga que configurar nada.
-  function iniciarPasos() {
+  // Con el módulo de pasos activado, la app pide sola el permiso de actividad física al abrirse hasta que lo den
+  // (si lo rechazan dos veces deja de insistir: queda el botón en Hoy y en Hábitos).
+  async function iniciarPasos() {
     if (!NATIVE || !mod('pasos')) return;
-    if (!S.settings.pasosPedido) { S.settings.pasosPedido = true; save(); syncSensor(true); } else syncSensor(false);
+    await syncSensor((S.settings.pasosRechazos || 0) < 2);
   }
   async function toggleSegundoPlano() {
     S.settings.segundoPlano = !S.settings.segundoPlano; save();
@@ -1033,7 +1043,8 @@
       case 'agua+': { const d = day(); d.agua = (d.agua || 0) + S.settings.vaso; changed(); sacarAvisoAgua(); break; }
       case 'agua-': { const d = day(); d.agua = Math.max(0, (d.agua || 0) - S.settings.vaso); changed(); break; }
       case 'motion': toggleMotion(); break;
-      case 'sensor-sync': syncSensor(true); break;
+      case 'sensor-sync': S.settings.pasosRechazos = 0; syncSensor(true); break;
+      case 'probar-aviso': probarAviso(); break;
       case 'bg-toggle': toggleSegundoPlano(); break;
       case 'pasos-add': case 'pasos-set': {
         const n = Math.round(num($('#pasosInput').value));
@@ -1197,6 +1208,17 @@
       await N.schedule({ notifications: list });
     } catch (e) { toast('No se pudieron programar los recordatorios'); }
   }
+  // Aviso de prueba: pide el permiso y manda una notificación en 5 segundos, para saber si los avisos funcionan en este teléfono.
+  async function probarAviso() {
+    const N = plug('LocalNotifications'); if (!N) return toast('Los avisos con la app cerrada funcionan solo en la app de Android.');
+    try {
+      let perm = await N.checkPermissions(); if (perm.display !== 'granted') perm = await N.requestPermissions();
+      if (perm.display !== 'granted') return toast('Android bloqueó las notificaciones: activalas en Ajustes del teléfono → Apps → A Mi Ritmo → Notificaciones.');
+      try { await N.createChannel({ id: 'recordatorios', name: 'Recordatorios', importance: 4, vibration: true }); } catch (e) { /* ya existe */ }
+      await N.schedule({ notifications: [{ id: 9999, title: '🔔 Aviso de prueba', body: 'Si ves esto, los recordatorios de A Mi Ritmo funcionan.', channelId: 'recordatorios', schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true } }] });
+      toast('Listo: en 5 segundos tiene que llegar un aviso. Cerrá la app para verlo mejor.');
+    } catch (e) { toast('No se pudo programar el aviso de prueba'); }
+  }
   // Aviso único para mañana (se usa con "No pude hoy").
   async function recordarManana(se, ej) {
     const N = plug('LocalNotifications'); if (!N || !conRecordatorios()) return;
@@ -1224,10 +1246,20 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) save(); else if (NATIVE) syncSensor(false); });
   window.addEventListener('pagehide', save);
 
+  // Bienvenida animada con el aviso: se lee unos segundos y se va sola (o al tocarla); después entra el dashboard.
+  function iniciarBienvenida() {
+    const sp = $('#splash'); if (!sp) return;
+    if (window.__sinSplash) { sp.remove(); return; }
+    let ido = false; const t0 = Date.now();
+    const salir = () => { if (ido) return; ido = true; sp.classList.add('fuera'); document.body.classList.add('entrando'); setTimeout(() => sp.remove(), 650); setTimeout(() => document.body.classList.remove('entrando'), 2000); };
+    sp.addEventListener('click', () => { if (Date.now() - t0 > 900) salir(); });
+    setTimeout(salir, 5600);
+  }
   aplicarColor();
+  iniciarBienvenida();
   render();
-  setupReminders();
-  if (NATIVE) { iniciarPasos(); setInterval(() => syncSensor(false), 5 * 60000); }
+  if (NATIVE) { iniciarPasos().then(() => setupReminders(), () => setupReminders()); setInterval(() => syncSensor(false), 5 * 60000); } else setupReminders();
+  if (NATIVE) { /* arriba */ }
   else if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { });
 
   // Ganchos para pruebas automáticas.

@@ -72,7 +72,7 @@ test('modal: un campo obligatorio vacío muestra el error y no guarda', async ({
 
 test('service worker: CACHE propio y ASSETS alineados con build-web y con los archivos reales', async () => {
   const sw = fs.readFileSync(path.join(RAIZ, 'sw.js'), 'utf8'), bw = fs.readFileSync(path.join(RAIZ, 'scripts/build-web.js'), 'utf8');
-  assert.match(sw, /const CACHE\s*=\s*'amiritmo-v1'/);
+  assert.match(sw, /const CACHE\s*=\s*'amiritmo-v2'/);
   const assets = eval(sw.match(/const ASSETS = (\[.*?\]);/)[1]).filter(x => x !== './');
   const build = eval(bw.match(/const FILES = (\[.*?\]);/)[1]).filter(x => x !== 'sw.js');
   assert.deepStrictEqual(assets.slice().sort(), build.slice().sort());

@@ -129,20 +129,6 @@ test('Hoy resume los módulos activados y nada más', async ({ abrir }) => {
   assert.match(t, /Pasos 1234/); assert.match(t, /Alimentación de hoy 1 \/ 2/); assert.doesNotMatch(t, /Agua|Actividad|Ejercicio de hoy/);
 });
 
-test('pasos (Android): la primera vez pide el permiso solo y después se cuenta sin tocar nada', async ({ abrir }) => {
-  const nat = { StepCounter: { isAvailable: '() => ({available:true})', hasPermission: '() => ({granted:false})', ensurePermission: '() => ({granted:true})', drain: '() => ({readings:[]})', read: '() => ({counter:500,bootTime:0})', startBackground: '() => ({})' } };
-  const { page } = await abrir({ ls: con({ pasos: true }), native: nat });
-  await page.waitForTimeout(400);
-  const ll = await page.evaluate(() => window.__llamadas.map(x => x[1]));
-  assert.ok(ll.includes('ensurePermission'), 'pide el permiso sin que la persona toque un botón');
-  assert.ok(ll.includes('startBackground'), 'el segundo plano queda activo por defecto');
-  assert.strictEqual((await estado(page)).settings.pasosPedido, true);
-  await irHab(page); assert.match(await texto(page), /Los pasos se cuentan solos, también con la app cerrada/);
-  assert.strictEqual(await page.locator('[data-a=sensor-sync]:visible').count(), 0, 'no hay botón de activar: ya está funcionando');
-  // segunda apertura: no vuelve a pedir
-  await page.evaluate(() => { window.__llamadas.length = 0; }); await page.reload(); await page.waitForFunction(() => window.SA); await page.waitForTimeout(300);
-  assert.ok(!(await page.evaluate(() => window.__llamadas.map(x => x[1]))).includes('ensurePermission'));
-});
 
 test('pasos (Android): lo caminado a la noche no se cuenta como pasos del día siguiente', async ({ abrir }) => {
   // Última lectura ayer 21:00 (contador 1000); el teléfono no leyó de noche; hoy a las 07:30 hay 500 pasos más: 2 h de actividad ayer y 30 min hoy.
@@ -169,4 +155,32 @@ test('pasos (Android): un intervalo solo de madrugada o de varios días no rompe
   await a.page.waitForTimeout(300);
   S = await estado(a.page); const suma = ['2026-10-16', '2026-10-17', '2026-10-18', '2026-10-19'].reduce((x, k) => x + ((S.days[k] || {}).pasos || 0), 0);
   assert.strictEqual(suma, 3000); assert.ok(S.days['2026-10-17'].pasos > 0 && S.days['2026-10-19'].pasos > 0);
+});
+
+const natPasos = (extra = {}) => ({ StepCounter: Object.assign({ isAvailable: '() => ({available:true})', hasPermission: `() => ({granted: localStorage.getItem('__perm') === '1'})`, ensurePermission: `() => { localStorage.setItem('__perm', '1'); return {granted:true}; }`, drain: '() => ({readings:[]})', read: '() => ({counter:500,bootTime:0})', startBackground: '() => ({})' }, extra) });
+
+test('pasos (Android): al abrir pide el permiso solo, queda activo y no vuelve a pedirlo', async ({ abrir }) => {
+  const { page } = await abrir({ ls: con({ pasos: true }), native: natPasos() });
+  await page.waitForTimeout(500);
+  const ll = await page.evaluate(() => window.__llamadas.map(x => x[1]));
+  assert.ok(ll.includes('ensurePermission'), 'pide el permiso sin que la persona toque un botón'); assert.ok(ll.includes('startBackground'), 'el segundo plano queda activo por defecto');
+  assert.match(await texto(page), /Contador activo · última lectura/);
+  assert.strictEqual(await page.locator('[data-a=sensor-sync]:visible').count(), 0, 'no hay botón de activar: ya está funcionando');
+  await irHab(page); assert.match(await texto(page), /Los pasos se cuentan solos, también con la app cerrada/);
+  await page.evaluate(() => { window.__llamadas.length = 0; }); await page.reload(); await page.waitForFunction(() => window.SA); await page.waitForTimeout(400);
+  assert.ok(!(await page.evaluate(() => window.__llamadas.map(x => x[1]))).includes('ensurePermission'), 'ya tiene el permiso');
+});
+
+test('pasos (Android): si no dan el permiso se ve el aviso con botón "Activar" y deja de insistir a la 2.ª vez', async ({ abrir }) => {
+  const nat = natPasos({ ensurePermission: '() => ({granted:false})', hasPermission: '() => ({granted:false})' });
+  const { page } = await abrir({ ls: con({ pasos: true }), native: nat });
+  await page.waitForTimeout(400);
+  assert.match(await texto(page), /No diste el permiso/); assert.strictEqual(await page.locator('[data-a=sensor-sync]:visible').count(), 1);
+  assert.strictEqual((await estado(page)).settings.pasosRechazos, 1);
+  await page.reload(); await page.waitForFunction(() => window.SA); await page.waitForTimeout(400);
+  assert.strictEqual((await estado(page)).settings.pasosRechazos, 2);
+  await page.evaluate(() => { window.__llamadas.length = 0; }); await page.reload(); await page.waitForFunction(() => window.SA); await page.waitForTimeout(400);
+  assert.ok(!(await page.evaluate(() => window.__llamadas.map(x => x[1]))).includes('ensurePermission'), 'a la tercera apertura ya no insiste');
+  await page.click('[data-a=sensor-sync]'); await page.waitForTimeout(300);
+  assert.ok((await page.evaluate(() => window.__llamadas.map(x => x[1]))).includes('ensurePermission'), 'el botón vuelve a pedirlo');
 });

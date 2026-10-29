@@ -160,3 +160,13 @@ test('agua (Android): los avisos no se borran al tocarlos y al marcar un vaso se
   const ll = await llamadas(page), rm = ll.filter(x => x[1] === 'removeDeliveredNotifications');
   assert.strictEqual(rm.length, 1); assert.deepStrictEqual(JSON.parse(rm[0][2])[0].notifications, [{ id: 1000 }], 'se saca solo el más viejo');
 });
+
+test('Probar un aviso ahora: pide el permiso y programa una notificación a los 5 segundos', async ({ abrir }) => {
+  const { page } = await abrir({ ls: plan('registro'), native: nativo() });
+  await ir(page, 'ajustes'); await page.click('[data-a=probar-aviso]'); await page.waitForTimeout(300);
+  const ult = (await llamadas(page)).filter(x => x[1] === 'schedule').pop(), n = JSON.parse(ult[2])[0].notifications[0];
+  assert.strictEqual(n.id, 9999); assert.match(n.title, /Aviso de prueba/); assert.ok(new Date(n.schedule.at).getTime() - Date.parse('2026-10-19T12:00:00') < 8000);
+  const b = await abrir({ ls: plan('registro'), native: { LocalNotifications: { getPending: '() => ({notifications:[]})', checkPermissions: '() => ({display:"denied"})', requestPermissions: '() => ({display:"denied"})' } } });
+  await ir(b.page, 'ajustes'); await b.page.click('[data-a=probar-aviso]'); await b.page.waitForTimeout(200);
+  assert.match(await b.page.innerText('#toast'), /Android bloqueó las notificaciones/);
+});
