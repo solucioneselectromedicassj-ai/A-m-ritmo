@@ -189,7 +189,7 @@ test('ejercicio: lo completado se pliega y quedan a la vista solo los pendientes
   const visibles = await page.$$eval('#view .item:not(.compacto)', xs => xs.filter(x => !x.closest('details:not([open])')).map(x => x.querySelector('b').textContent));
   assert.deepStrictEqual(visibles, ['Puente'], 'solo el que falta, con su figura y sus botones');
   assert.strictEqual(await page.locator('#view details.compacto').count(), 2);
-  assert.match(await texto(page), /Ya resuelto hoy/); assert.match(await texto(page), /✅ Giros/); assert.match(await texto(page), /⏭ Plancha/);
+  assert.match(await texto(page), /Ya resuelto hoy/); assert.match(await texto(page), /Giros\s*30 repeticiones/); assert.match(await texto(page), /Plancha\s*hoy no/);
   assert.strictEqual(await page.locator('#view details.compacto[open]').count(), 0, 'plegados por defecto');
   await page.click('[data-a="ej+"][data-id=e2]'); await page.click('[data-a="ej+"][data-id=e2]');   // completa Puente (2 series)
   await page.click('[data-a=ej-no-x][data-id=e3]').catch(() => { });
@@ -275,7 +275,7 @@ test('Hoy: la rutina se habilita a su hora, cada ejercicio desaparece al marcarl
   assert.deepStrictEqual(await filas(), ['Plancha']);
   await page.click('[data-a=ses-todo][data-id=s1]');
   assert.deepStrictEqual(await filas(), []); const hoyT = await texto(page);
-  assert.match(hoyT, /Ejercicio de hoy ✅ ¡completo! 3 \/ 3/); assert.doesNotMatch(hoyT, /¡Rutina completa!/, 'sin tarjeta repetida: el resumen ya lo dice');
+  assert.match(hoyT, /Ejercicio de hoy · ¡completo! 3 \/ 3/); assert.doesNotMatch(hoyT, /¡Rutina completa!/, 'sin tarjeta repetida: el resumen ya lo dice');
   assert.strictEqual((await estado(page)).days['2026-10-19'].ej.e3, 2);
 });
 

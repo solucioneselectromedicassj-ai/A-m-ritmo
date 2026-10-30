@@ -2,7 +2,7 @@
 const { test, assert, estado, texto } = require('./lib');
 const { base } = require('./datos');
 
-const tabs = async page => (await page.locator('#nav button').allInnerTexts()).map(t => t.replace(/^\S+\s*/, ''));
+const tabs = async page => (await page.locator('#nav button').allInnerTexts()).map(t => t.trim());   // los íconos son SVG: el texto es solo el nombre
 const mods = (...ks) => Promise.all(ks);
 
 test('primer uso: muestra el asistente, sin navegación y con todo vacío (sin metas ni límites por defecto)', async ({ abrir }) => {

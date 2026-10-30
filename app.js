@@ -41,16 +41,16 @@
   /* ---------- Contenido configurable ---------- */
   // Mediciones disponibles. Los umbrales (min/max) NO vienen cargados: los define cada persona o su profesional.
   const CATALOGO = {
-    presion: { n: 'Presión arterial', ic: '🩺', campos: [
+    presion: { n: 'Presión arterial', ic: 'presion', campos: [
       { k: 'sis', n: 'Máxima (sistólica)', u: 'mmHg', r: [50, 300] }, { k: 'dia', n: 'Mínima (diastólica)', u: 'mmHg', r: [30, 200] }, { k: 'pul', n: 'Pulso', u: 'lpm', r: [25, 250], opc: true }] },
-    peso: { n: 'Peso', ic: '⚖️', campos: [{ k: 'kg', n: 'Peso', u: 'kg', r: [20, 400], dec: 1 }] },
-    colesterol: { n: 'Colesterol', ic: '🩸', analisis: true, campos: [
+    peso: { n: 'Peso', ic: 'peso', campos: [{ k: 'kg', n: 'Peso', u: 'kg', r: [20, 400], dec: 1 }] },
+    colesterol: { n: 'Colesterol', ic: 'colesterol', analisis: true, campos: [
       { k: 'ldl', n: 'LDL', u: 'mg/dL', r: [10, 600], opc: true }, { k: 'hdl', n: 'HDL', u: 'mg/dL', r: [5, 200], opc: true },
       { k: 'total', n: 'Total', u: 'mg/dL', r: [50, 800], opc: true }, { k: 'tg', n: 'Triglicéridos', u: 'mg/dL', r: [10, 3000], opc: true }] },
-    spo2: { n: 'Saturación de oxígeno', ic: '🫁', campos: [{ k: 'sat', n: 'Saturación', u: '%', r: [50, 100] }, { k: 'pul', n: 'Pulso', u: 'lpm', r: [25, 250], opc: true }] },
-    pulso: { n: 'Pulso', ic: '💓', campos: [{ k: 'pul', n: 'Pulso', u: 'lpm', r: [25, 250] }] },
-    glucosa: { n: 'Glucosa', ic: '🍬', campos: [{ k: 'g', n: 'Glucosa', u: 'mg/dL', r: [10, 900] }] },
-    propia: { n: 'Otra medición', ic: '📏', campos: [{ k: 'v', n: 'Valor', u: '', r: [-1000000, 1000000], dec: 2 }] }
+    spo2: { n: 'Saturación de oxígeno', ic: 'spo2', campos: [{ k: 'sat', n: 'Saturación', u: '%', r: [50, 100] }, { k: 'pul', n: 'Pulso', u: 'lpm', r: [25, 250], opc: true }] },
+    pulso: { n: 'Pulso', ic: 'pulso', campos: [{ k: 'pul', n: 'Pulso', u: 'lpm', r: [25, 250] }] },
+    glucosa: { n: 'Glucosa', ic: 'glucosa', campos: [{ k: 'g', n: 'Glucosa', u: 'mg/dL', r: [10, 900] }] },
+    propia: { n: 'Otra medición', ic: 'propia', campos: [{ k: 'v', n: 'Valor', u: '', r: [-1000000, 1000000], dec: 2 }] }
   };
   // Ejercicios de ejemplo (suaves, sin carga). Son ejemplos, no indicaciones: cada persona los ajusta con su profesional.
   const BIBLIOTECA = [
@@ -104,8 +104,8 @@
     ['recordatorios', 'Registro y recordatorios', 'Además te avisa a las horas que elijas (rutina, agua, mediciones).'],
     ['avisos', 'Registro, recordatorios y avisos', 'Además te avisa si una medición queda fuera del rango que vos (o tu profesional) definiste.']
   ];
-  const MODULOS = [['ejercicio', '🏋️', 'Ejercicio', 'Rutinas y ejercicios a tu medida'], ['pasos', '👣', 'Pasos', 'Contador y gráfico semanal'], ['agua', '💧', 'Agua', 'Vasos del día y recordatorio'],
-    ['actividad', '🚴', 'Actividad aeróbica', 'Minutos por semana'], ['comida', '🥗', 'Alimentación', 'Qué comés cada día y tu resumen del mes'], ['medidas', '📈', 'Mediciones de salud', 'Presión, peso, análisis y más']];
+  const MODULOS = [['ejercicio', 'ejercicio', 'Ejercicio', 'Rutinas y ejercicios a tu medida'], ['pasos', 'pasos', 'Pasos', 'Contador y gráfico semanal'], ['agua', 'agua', 'Agua', 'Vasos del día y recordatorio'],
+    ['actividad', 'actividad', 'Actividad aeróbica', 'Minutos por semana'], ['comida', 'comida', 'Alimentación', 'Qué comés cada día y tu resumen del mes'], ['medidas', 'medidas', 'Mediciones de salud', 'Presión, peso, análisis y más']];
 
   /* ---------- Estado, migración y respaldo ---------- */
   const DEFAULTS = () => ({
@@ -178,7 +178,7 @@
     const p = Math.min(100, Math.round(val / max * 100));
     return `<div class="meter"><div class="meter-top"><span>${esc(label)}</span><b>${val}${u} / ${max}${u}</b></div><div class="bar"><i style="width:${p}%"></i></div></div>`;
   };
-  const delBtn = (k, i) => `<button data-a="del" data-k="${esc(k)}" data-i="${i}" aria-label="Borrar registro">🗑</button>`;
+  const delBtn = (k, i) => `<button data-a="del" data-k="${esc(k)}" data-i="${i}" aria-label="Borrar registro">${ICONO('papelera')}</button>`;
   const segBtns = (lista, actual, accion) => `<div class="seg">${lista.map(([k, n]) => `<button data-a="${accion}" data-v="${esc(k)}" class="${actual === k ? 'on' : ''}">${esc(n)}</button>`).join('')}</div>`;
 
   // Gráfico de líneas. o.band = [min,max] zona sombreada; o.lines = [{v,label}] líneas de referencia (metas/umbrales).
@@ -354,16 +354,16 @@
   let tab = 'hoy', subCom = 'hoy', subMes = 'actual', subH = null, subM = null, subEv = 'semana', subEvP = 'semana', subEvA = 'semana', wiz = null;
   const selCampo = {};
   const tabsActivas = () => {
-    const t = [['hoy', '🏠', 'Hoy']];
-    if (mod('ejercicio')) t.push(['ejercicio', '🏋️', 'Ejercicio']);
-    if (mod('medidas')) t.push(['medidas', '📈', 'Medidas']);
-    if (['pasos', 'agua', 'actividad', 'comida'].some(mod)) t.push(['habitos', '🥗', 'Hábitos']);
-    t.push(['ajustes', '⚙️', 'Ajustes']);
+    const t = [['hoy', 'inicio', 'Hoy']];
+    if (mod('ejercicio')) t.push(['ejercicio', 'ejercicio', 'Ejercicio']);
+    if (mod('medidas')) t.push(['medidas', 'medidas', 'Medidas']);
+    if (['pasos', 'agua', 'actividad', 'comida'].some(mod)) t.push(['habitos', 'habitos', 'Hábitos']);
+    t.push(['ajustes', 'ajustes', 'Ajustes']);
     return t;
   };
   function renderNav() {
     const nav = $('#nav'); nav.hidden = !S.listo;
-    nav.innerHTML = S.listo ? tabsActivas().map(([k, ic, n]) => `<button data-a="tab" data-t="${k}" ${tab === k ? 'aria-current="page"' : ''}><span>${ic}</span>${n}</button>`).join('') : '';
+    nav.innerHTML = S.listo ? tabsActivas().map(([k, ic, n]) => `<button data-a="tab" data-t="${k}" ${tab === k ? 'aria-current="page"' : ''}><span>${ICONO(ic)}</span>${n}</button>`).join('') : '';
   }
   function render() {
     if (!S.listo) { $('#view').innerHTML = viewAsistente(); }
@@ -376,6 +376,40 @@
   }
   function go(t) { tab = t; render(); window.scrollTo(0, 0); }
   const changed = () => { consumirRecup(); save(); render(); if (NATIVE) reprogramarSiCambio(); };
+  /* Íconos de línea (SVG, heredan el color): reemplazan a los emojis dentro de la app. Las notificaciones del sistema conservan emojis. */
+  const ICONOS = {
+    inicio: '<path d="M3.5 11.5 12 4l8.5 7.5"/><path d="M5.5 10v9.5H10V14h4v5.5h4.5V10"/>',
+    ejercicio: '<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>',
+    medidas: '<path d="M3 12h4l2.2-6.5 4.2 13 2.4-6.5H21"/>',
+    habitos: '<circle cx="12" cy="12" r="8.5"/><path d="M8 12.3l2.8 2.8L16.3 9.5"/>',
+    ajustes: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+    agua: '<path d="M12 3.5s6 6.2 6 10.7a6 6 0 0 1-12 0C6 9.7 12 3.5 12 3.5z"/>',
+    pasos: '<ellipse cx="8" cy="8.5" rx="2.8" ry="4.3"/><circle cx="8" cy="16.5" r="1.9"/><ellipse cx="16.5" cy="10.5" rx="2.8" ry="4.3"/><circle cx="16.5" cy="18.5" r="1.9"/>',
+    actividad: '<path d="M13 2.5 5.5 13.5h5.5l-1 8 7.5-11h-5.5z"/>',
+    comida: '<path d="M7 3v6.5a2.2 2.2 0 0 0 4.4 0V3M9.2 3v18M17 3c-2.2 1.3-3.2 3.4-3.2 6.2 0 1.8 1.2 2.8 3.2 2.8M17 3v18"/>',
+    presion: '<path d="M4.5 17.5a8.5 8.5 0 1 1 15 0"/><path d="M12 14l3.4-4.2"/><circle cx="12" cy="14" r="1"/>',
+    peso: '<rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M8.3 10a4.2 4.2 0 0 1 7.4 0M12 10l1.6-1.8"/>',
+    colesterol: '<path d="M9.5 3h5M10.5 3v5.8l-5 8.6a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-8.6V3"/><path d="M8.3 14h7.4"/>',
+    spo2: '<path d="M4 9h9a2.5 2.5 0 1 0-2.5-2.5M4 13h13a2.5 2.5 0 1 1-2.5 2.5M4 17h6"/>',
+    pulso: '<path d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.6a4.2 4.2 0 0 1 7.5 2.2C19.5 15.4 12 20 12 20z"/>',
+    glucosa: '<path d="M12 3.5s5.5 5.6 5.5 9.8a5.5 5.5 0 0 1-11 0C6.5 9.1 12 3.5 12 3.5z"/><path d="M12 11.5v4M10 13.5h4"/>',
+    propia: '<path d="M4 16 16 4l4 4L8 20z"/><path d="M8 12l2 2M11 9l2 2M14 6l2 2"/>',
+    campana: '<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 21h4"/>',
+    respaldo: '<path d="M12 3.5v11M7.5 10.5l4.5 4.5 4.5-4.5M5 20h14"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    cruz: '<path d="M6 6l12 12M18 6 6 18"/>',
+    saltar: '<path d="M5 12h12M13 7l5 5-5 5"/>',
+    mas: '<path d="M12 5v14M5 12h14"/>',
+    calendario: '<rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>',
+    objetivo: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".7" fill="currentColor"/>',
+    reloj: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+    aviso: '<path d="M12 4 3 19.5h18z"/><path d="M12 10v4.5M12 17.2v.1"/>',
+    papelera: '<path d="M5 7h14M10 7V4.5h4V7M7 7l.8 12.5h8.4L17 7M10.5 11v5M13.5 11v5"/>',
+    mes: '<rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4M9 14.5l2 2 4-4"/>',
+    'tilde-on': '<circle cx="12" cy="12" r="9" fill="currentColor" stroke="none"/><path d="M7.8 12.4l2.9 2.9 5.6-6" stroke="#fff" stroke-width="2.2"/>',
+    'tilde-off': '<circle cx="12" cy="12" r="8.5"/>'
+  };
+  const ICONO = n => (ICONOS[n] ? `<svg class="ico ico-${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONOS[n]}</svg>` : '');
   const AVISO_TXT = 'A Mi Ritmo es una ayuda personal para llevar tus hábitos. No reemplaza las indicaciones de tu médico ni de otros profesionales de la salud, y no diagnostica ni indica tratamientos. Las metas y los límites los definís vos, idealmente con tu profesional. Si te sentís mal, buscá atención médica.';
   const tarjetaAviso = () => (S.settings.avisoAceptado ? '' : `<div class="card warn"><b>Antes de empezar</b><p>${esc(AVISO_TXT)}</p><div class="row"><button class="pri grow" data-a="aviso-ok">Entendí y acepto</button></div></div>`);
   // Espacio publicitario DE EJEMPLO (todavía sin ningún servicio de anuncios): solo en pantallas tranquilas (Ajustes y Evolución), nunca en Hoy, mediciones, ejercicios en curso ni cerca de avisos médicos.
@@ -385,7 +419,7 @@
   function tarjetaRespaldo() {
     const s = S.settings;
     if (!hayRegistros() || diasDeUso() < 3 || diasSinRespaldo() < 7 || s.respaldoPospuesto === hoy()) return '';
-    return `<div class="card warn"><b>💾 Hacé un respaldo</b><p>${s.ultimoRespaldo ? 'Hace ' + diasSinRespaldo() + ' días que no exportás uno.' : 'Todavía no exportaste ninguno.'} Tus datos viven solo en este teléfono.</p><div class="row"><button class="pri grow" data-a="export">Exportar respaldo</button><button class="ghost grow" data-a="resp-luego">Más tarde</button></div></div>`;
+    return `<div class="card warn"><b>${ICONO('respaldo')} Hacé un respaldo</b><p>${s.ultimoRespaldo ? 'Hace ' + diasSinRespaldo() + ' días que no exportás uno.' : 'Todavía no exportaste ninguno.'} Tus datos viven solo en este teléfono.</p><div class="row"><button class="pri grow" data-a="export">Exportar respaldo</button><button class="ghost grow" data-a="resp-luego">Más tarde</button></div></div>`;
   }
   function tarjetasAvisos() {
     let h = '';
@@ -393,7 +427,7 @@
       S.medidas.forEach(m => {
         if (conAvisos()) { const a = avisosMedida(m); if (a.length) h += `<div class="card warn"><b>${esc(m.n)}: fuera del rango que definiste</b>${a.map(t => `<p>${esc(t)}</p>`).join('')}<small>Repetí la medición con calma y comentalo con tu profesional si se repite.</small></div>`; }
         const p = proximaFecha(m);
-        if (p && p.avisar) h += `<div class="card warn"><b>🗓 ${esc(m.n)}: toca repetir</b><p>${p.dias > 0 ? (p.dias === 1 ? 'Falta 1 día' : `Faltan ${p.dias} días`) + ' para la fecha que elegiste' : 'Ya es la fecha que elegiste'} (${fmtDMA(p.desde)}), ${m.repetirMeses} mes${m.repetirMeses === 1 ? '' : 'es'} después del último registro.</p><small>${AVISO_APP_ABIERTA}</small></div>`;
+        if (p && p.avisar) h += `<div class="card warn"><b>${ICONO('calendario')} ${esc(m.n)}: toca repetir</b><p>${p.dias > 0 ? (p.dias === 1 ? 'Falta 1 día' : `Faltan ${p.dias} días`) + ' para la fecha que elegiste' : 'Ya es la fecha que elegiste'} (${fmtDMA(p.desde)}), ${m.repetirMeses} mes${m.repetirMeses === 1 ? '' : 'es'} después del último registro.</p><small>${AVISO_APP_ABIERTA}</small></div>`;
       });
     }
     return h;
@@ -417,12 +451,12 @@
     const resumen = grupos.map(g => `${esc(g.se.n)}${g.habil ? '' : ' (' + esc(g.se.hora) + ')'}`).join(' · ');
     const cuerpo = grupos.map(g => {
       const id = esc(g.se.id);
-      if (!g.habil) return `<div class="grp"><h3 class="sub">🏋️ ${g.titulo}</h3><p class="muted">Se habilita a las ${esc(g.se.hora)}. ${g.pend.length} ejercicio${g.pend.length === 1 ? '' : 's'} para hoy.</p><button class="ghost mini" data-a="hoy-abrir" data-id="${id}">Empezar antes</button></div>`;
-      return `<div class="grp"><h3 class="sub">🏋️ ${g.titulo} · ${g.hechos.length + g.saltados.length} de ${g.ejs.length} resueltos</h3>
-        ${g.pend.map(e => `<div class="fila-ej"><div class="grow"><b>${esc(e.n)}</b><small>${esc(dosisEj(e))}</small>${avisoRecup(e)}</div><button class="pri mini" data-a="ej-ok" data-id="${esc(e.id)}" aria-label="Lo hice: ${esc(e.n)}">✅ Lo hice</button><button class="ghost mini" data-a="ej-no" data-id="${esc(e.id)}">Hoy no</button></div><details class="mas"><summary>Cómo hacerlo / contar</summary>${ejCard(e, k)}</details>`).join('')}
-        <div class="row" style="margin-top:10px"><button class="pri grow" data-a="ses-todo" data-id="${id}">✅ Lo hice todo</button><button class="ghost grow" data-a="ses-no" data-id="${id}">❌ No pude hoy</button></div></div>`;
+      if (!g.habil) return `<div class="grp"><h3 class="sub">${ICONO('ejercicio')} ${g.titulo}</h3><p class="muted">Se habilita a las ${esc(g.se.hora)}. ${g.pend.length} ejercicio${g.pend.length === 1 ? '' : 's'} para hoy.</p><button class="ghost mini" data-a="hoy-abrir" data-id="${id}">Empezar antes</button></div>`;
+      return `<div class="grp"><h3 class="sub">${ICONO('ejercicio')} ${g.titulo} · ${g.hechos.length + g.saltados.length} de ${g.ejs.length} resueltos</h3>
+        ${g.pend.map(e => `<div class="fila-ej"><div class="grow"><b>${esc(e.n)}</b><small>${esc(dosisEj(e))}</small>${avisoRecup(e)}</div><button class="pri mini" data-a="ej-ok" data-id="${esc(e.id)}" aria-label="Lo hice: ${esc(e.n)}">${ICONO('check')} Lo hice</button><button class="ghost mini" data-a="ej-no" data-id="${esc(e.id)}">Hoy no</button></div><details class="mas"><summary>Cómo hacerlo / contar</summary>${ejCard(e, k)}</details>`).join('')}
+        <div class="row" style="margin-top:10px"><button class="pri grow" data-a="ses-todo" data-id="${id}">${ICONO('check')} Lo hice todo</button><button class="ghost grow" data-a="ses-no" data-id="${id}">${ICONO('cruz')} No pude hoy</button></div></div>`;
     }).join('');
-    return `<details class="card agrupa" data-eid="hoy-pend" ${abiertosEj.has('hoy-pend') ? 'open' : ''}><summary><span class="ag-t">🏋️ Ejercicios pendientes <b>${total}</b></span><small>${resumen}${listas < total ? ' · algunos se habilitan más tarde' : ''}</small></summary>${cuerpo}</details>${notas.join('')}`;
+    return `<details class="card agrupa" data-eid="hoy-pend" ${abiertosEj.has('hoy-pend') ? 'open' : ''}><summary><span class="ag-t">${ICONO('ejercicio')} Ejercicios pendientes <b>${total}</b></span><small>${resumen}${listas < total ? ' · algunos se habilitan más tarde' : ''}</small></summary>${cuerpo}</details>${notas.join('')}`;
   }
   /* Al tocar una notificación, la app abre con un aviso rápido y su acción (sin pasar por el resto de la pantalla); después sigue como siempre. */
   function avisoRapido(titulo, texto, acciones) {
@@ -433,13 +467,13 @@
   function alTocarAviso(id) {
     if (!S.listo || wiz) return;
     const despues = ['Después', 'modal-cancel'];
-    if (id >= 1000 && id < 2000) { if (!mod('agua')) return; const p = pendientesAgua(); return avisoRapido('💧 Hora de tomar agua', p > 1 ? `Te quedaron ${p} vasos por tomar (vaso de ${S.settings.vaso} ml).` : `Un vaso de ${S.settings.vaso} ml.`, [['Tomé un vaso', 'agua+', '', 'pri'], despues]); }
+    if (id >= 1000 && id < 2000) { if (!mod('agua')) return; const p = pendientesAgua(); return avisoRapido('Hora de tomar agua', p > 1 ? `Te quedaron ${p} vasos por tomar (vaso de ${S.settings.vaso} ml).` : `Un vaso de ${S.settings.vaso} ml.`, [['Tomé un vaso', 'agua+', '', 'pri'], despues]); }
     if (id >= 2000 && id < 3000) { const m = S.medidas[id - 2000]; if (!m) return; return avisoRapido(`${m.n}: hora de medir`, 'Anotá el valor cuando lo tengas.', [['Anotar ahora', 'ir-medida', `data-id="${esc(m.id)}"`, 'pri'], despues]); }
-    if (id >= 3000 && id < 3600) { const se = S.sesiones[Math.floor((id - 3000) / 10)]; if (!se) return; abiertosEj.add('hoy-pend'); return avisoRapido(`🏋️ ${se.n}`, 'Es hora de tu rutina.', [['Ver mis ejercicios', 'tab', 'data-t="hoy"', 'pri'], despues]); }
-    if ((id >= 3600 && id < 3700) || id === 3900) { abiertosEj.add('hoy-pend'); return avisoRapido(id === 3900 ? '🏋️ Tenías ejercicios pendientes' : '🏋️ ¿Hiciste tu rutina de hoy?', 'Marcá lo que hiciste. Lo que no, lo podés dejar para otro día.', [['Ver mis ejercicios', 'tab', 'data-t="hoy"', 'pri'], despues]); }
-    if (id === 3800) { if (!mod('comida')) return; return avisoRapido('🍽 Cerró el mes', 'Tu resumen de alimentación está listo: mirá qué comiste y elegí tus objetivos del mes que viene.', [['Ver mi resumen', 'mes-ver', '', 'pri'], ['Después', 'modal-cancel']]); }
-    if (id === 3700) return avisoRapido('👣 ¿Cómo van tus pasos de hoy?', `Llevás ${peek().pasos || 0}${S.settings.metaPasos ? ' de ' + S.settings.metaPasos : ''} pasos.`, [['Ver mis pasos', 'ir-pasos', '', 'pri'], despues]);
-    if (id >= 4000 && id < 5000) { const r = S.recordatorios[Math.floor((id - 4000) / 10)]; if (!r) return; return avisoRapido(`🔔 ${r.txt}`, '', [['Listo', 'modal-cancel', '', 'pri']]); }
+    if (id >= 3000 && id < 3600) { const se = S.sesiones[Math.floor((id - 3000) / 10)]; if (!se) return; abiertosEj.add('hoy-pend'); return avisoRapido(`${se.n}`, 'Es hora de tu rutina.', [['Ver mis ejercicios', 'tab', 'data-t="hoy"', 'pri'], despues]); }
+    if ((id >= 3600 && id < 3700) || id === 3900) { abiertosEj.add('hoy-pend'); return avisoRapido(id === 3900 ? 'Tenías ejercicios pendientes' : '¿Hiciste tu rutina de hoy?', 'Marcá lo que hiciste. Lo que no, lo podés dejar para otro día.', [['Ver mis ejercicios', 'tab', 'data-t="hoy"', 'pri'], despues]); }
+    if (id === 3800) { if (!mod('comida')) return; return avisoRapido('Cerró el mes', 'Tu resumen de alimentación está listo: mirá qué comiste y elegí tus objetivos del mes que viene.', [['Ver mi resumen', 'mes-ver', '', 'pri'], ['Después', 'modal-cancel']]); }
+    if (id === 3700) return avisoRapido('¿Cómo van tus pasos de hoy?', `Llevás ${peek().pasos || 0}${S.settings.metaPasos ? ' de ' + S.settings.metaPasos : ''} pasos.`, [['Ver mis pasos', 'ir-pasos', '', 'pri'], despues]);
+    if (id >= 4000 && id < 5000) { const r = S.recordatorios[Math.floor((id - 4000) / 10)]; if (!r) return; return avisoRapido(`${r.txt}`, '', [['Listo', 'modal-cancel', '', 'pri']]); }
   }
   // Fin de mes (últimos 3 días) y primeros días del mes siguiente: invita a mirar el resumen de alimentación y a elegir objetivos.
   function mesParaResumir() {
@@ -454,19 +488,19 @@
     const clave = claveMes(ini), s = S.settings; if (s.mesComidaVisto === clave || s.mesComidaPosp === hoy()) return '';
     const r = resumenMes(ini); if (!r.conReg) return '';
     const sin = r.items.filter(x => x.dias === 0).map(x => x.x.n).slice(0, 3);
-    return `<div class="card"><b>🍽 ${r.actual ? 'Se acaba ' : 'Cerró '}${esc(r.nombre)}: mirá qué comiste</b><p>${sin.length ? `No anotaste: ${sin.map(esc).join(', ')}. ` : ''}Mirá tu resumen y elegí cómo querés arrancar el mes que viene.</p><div class="row"><button class="pri grow" data-a="mes-ver">Ver mi resumen</button><button class="ghost grow" data-a="mes-luego">Más tarde</button></div></div>`;
+    return `<div class="card"><b>${ICONO('mes')} ${r.actual ? 'Se acaba ' : 'Cerró '}${esc(r.nombre)}: mirá qué comiste</b><p>${sin.length ? `No anotaste: ${sin.map(esc).join(', ')}. ` : ''}Mirá tu resumen y elegí cómo querés arrancar el mes que viene.</p><div class="row"><button class="pri grow" data-a="mes-ver">Ver mi resumen</button><button class="ghost grow" data-a="mes-luego">Más tarde</button></div></div>`;
   }
   // Estado del contador de pasos a la vista (Android): activo, o qué falta para que cuente.
   function estadoPasos() {
     if (!NATIVE) return '';
-    if (sensor.on) return `<small>👣 Contador activo${sensor.last ? ' · última lectura ' + pad(new Date(sensor.last).getHours()) + ':' + pad(new Date(sensor.last).getMinutes()) : ''}</small>`;
+    if (sensor.on) return `<small>${ICONO('pasos')} Contador activo${sensor.last ? ' · última lectura ' + pad(new Date(sensor.last).getHours()) + ':' + pad(new Date(sensor.last).getMinutes()) : ''}</small>`;
     return `<div class="row" style="margin-top:6px"><small class="grow warnTxt">${esc(sensor.msg || 'El contador de pasos todavía no está activo.')}</small><button class="pri mini" data-a="sensor-sync">Activar</button></div>`;
   }
   function viewHoy() {
     const now = new Date(), k = hoy(), d = peek(), s = S.settings, filas = [];
     if (mod('ejercicio')) {
       const ses = sesionesDelDia(now), ejs = ses.flatMap(ejDeSesion), hechos = ejs.filter(e => progEj(e, k) >= metaEj(e)).length;
-      filas.push(ejs.length ? meter('Ejercicio de hoy' + (hechos === ejs.length ? ' ✅ ¡completo!' : ''), hechos, ejs.length) : '<small>Ejercicio: hoy no tenés rutina programada.</small>');
+      filas.push(ejs.length ? meter('Ejercicio de hoy' + (hechos === ejs.length ? ' · ¡completo!' : ''), hechos, ejs.length) : '<small>Ejercicio: hoy no tenés rutina programada.</small>');
     }
     if (mod('pasos')) filas.push(meter('Pasos', d.pasos || 0, s.metaPasos) + estadoPasos());
     if (mod('agua')) filas.push(meter('Agua', d.agua || 0, s.metaAgua, 'ml'));
@@ -517,24 +551,24 @@
     } else {
       const chips = Array.from({ length: Math.max(meta, c) }, (_, i) => `<span class="chip ${i < c ? 'on' : ''} ${i >= meta ? 'extra' : ''}"></span>`).join('');
       ctl = `<div class="chips">${chips}<small style="align-self:center;margin-left:6px">${c} serie${c === 1 ? '' : 's'} hecha${c === 1 ? '' : 's'}</small></div>
-        <div class="item-actions"><button class="pri mini" data-a="ej+" data-id="${id}">Serie hecha</button><button class="ghost mini" data-a="ej-" data-id="${id}" aria-label="Una menos">−</button>${e.tipo === 'tiempo' ? `<button class="ghost mini" data-a="timer" data-s="${e.seg}" data-l="${esc(e.n)}">⏱ ${e.seg} s</button>` : ''}</div>`;
+        <div class="item-actions"><button class="pri mini" data-a="ej+" data-id="${id}">Serie hecha</button><button class="ghost mini" data-a="ej-" data-id="${id}" aria-label="Una menos">−</button>${e.tipo === 'tiempo' ? `<button class="ghost mini" data-a="timer" data-s="${e.seg}" data-l="${esc(e.n)}">${ICONO('reloj')} ${e.seg} s</button>` : ''}</div>`;
     }
     return `<div class="item ${c >= meta && meta > 0 ? 'done' : ''} ${mol ? 'pain' : ''}">
-      <div class="item-main"><b>${esc(e.n)}</b>${fig}<small>${esc(dosisEj(e))}${e.nota ? ' — ' + esc(e.nota) : ''}</small>${avisoRecup(e)}${mol ? '<small class="warnTxt">⚠ Marcado como molesto: salteálo o hacelo más suave, y consultalo con tu profesional.</small>' : ''}</div>
+      <div class="item-main"><b>${esc(e.n)}</b>${fig}<small>${esc(dosisEj(e))}${e.nota ? ' — ' + esc(e.nota) : ''}</small>${avisoRecup(e)}${mol ? '<small class="warnTxt">' + ICONO('aviso') + ' Marcado como molesto: salteálo o hacelo más suave, y consultalo con tu profesional.</small>' : ''}</div>
       ${ctl}${no ? `<small class="warnTxt">Hoy no lo hacés${conRecordatorios() ? ': mañana te lo recuerdo' : ': mañana te lo muestro como pendiente'}.</small>` : ''}
-      <div class="item-actions" style="margin-top:6px">${c >= meta && meta > 0 ? '' : `<button class="pri mini" data-a="ej-ok" data-id="${id}">✅ Lo hice</button>`}<button class="ghost mini" data-a="mol" data-id="${id}">${mol ? 'Quitar marca' : 'Me molestó'}</button>${no ? `<button class="ghost mini" data-a="ej-no-x" data-id="${id}">Deshacer "hoy no"</button>` : (c >= meta && meta > 0 ? '' : `<button class="ghost mini" data-a="ej-no" data-id="${id}">Hoy no</button>`)}</div></div>`;
+      <div class="item-actions" style="margin-top:6px">${c >= meta && meta > 0 ? '' : `<button class="pri mini" data-a="ej-ok" data-id="${id}">${ICONO('check')} Lo hice</button>`}<button class="ghost mini" data-a="mol" data-id="${id}">${mol ? 'Quitar marca' : 'Me molestó'}</button>${no ? `<button class="ghost mini" data-a="ej-no-x" data-id="${id}">Deshacer "hoy no"</button>` : (c >= meta && meta > 0 ? '' : `<button class="ghost mini" data-a="ej-no" data-id="${id}">Hoy no</button>`)}</div></div>`;
   }
   function sesionBloque(s, f) {
     const k = ymd(f), ejs = ejDeSesion(s), omitE = peek(k).omitEj || {}, omit = (peek(k).omit || {})[s.id];
     const hechosL = ejs.filter(e => progEj(e, k) >= metaEj(e)), saltL = ejs.filter(e => progEj(e, k) < metaEj(e) && omitE[e.id]), pendL = ejs.filter(e => !hechosL.includes(e) && !saltL.includes(e));
     // Lo que ya está hecho (o salteado) se compacta y queda abajo: arriba solo lo que falta.
-    const compacto = (e, marca, txt) => `<details class="item compacto ${marca === '✅' ? 'done' : ''}" data-eid="${esc(e.id)}" ${abiertosEj.has(e.id) ? 'open' : ''}><summary>${marca} ${esc(e.n)}<small>${txt}</small></summary>${ejCard(e, k)}</details>`;
+    const compacto = (e, marca, txt) => `<details class="item compacto ${marca === 'ok' ? 'done' : ''}" data-eid="${esc(e.id)}" ${abiertosEj.has(e.id) ? 'open' : ''}><summary>${ICONO(marca === 'ok' ? 'check' : 'saltar')} ${esc(e.n)}<small>${txt}</small></summary>${ejCard(e, k)}</details>`;
     return `<div class="card ${sesionHecha(s, k) ? 'ok' : ''}"><h3>${esc(s.n)}${s.hora ? ' · ' + esc(s.hora) : ''}</h3>
-      <p>${hechosL.length} de ${ejs.length} ejercicios completos.${omit ? ' <span class="warnTxt">Marcaste que hoy no pudiste.</span>' : ''}${ejs.length && sesionHecha(s, k) ? ' <span class="okTxt">¡Rutina completa! 🎉</span>' : ''}</p>
-      <div class="row"><button class="pri grow" data-a="ses-todo" data-id="${esc(s.id)}">✅ Lo hice todo</button><button class="ghost grow" data-a="ses-no" data-id="${esc(s.id)}">❌ No pude hoy</button></div>
-      <div class="row" style="margin-top:8px"><span class="muted grow">${esc(fmtDiasSes(s.dias || []))}${s.hora ? ' · ' + esc(s.hora) : ' · sin horario'}</span><button class="ghost mini" data-a="ses-edit" data-id="${esc(s.id)}">📅 Días y horario</button></div></div>
+      <p>${hechosL.length} de ${ejs.length} ejercicios completos.${omit ? ' <span class="warnTxt">Marcaste que hoy no pudiste.</span>' : ''}${ejs.length && sesionHecha(s, k) ? ' <span class="okTxt">¡Rutina completa!</span>' : ''}</p>
+      <div class="row"><button class="pri grow" data-a="ses-todo" data-id="${esc(s.id)}">${ICONO('check')} Lo hice todo</button><button class="ghost grow" data-a="ses-no" data-id="${esc(s.id)}">${ICONO('cruz')} No pude hoy</button></div>
+      <div class="row" style="margin-top:8px"><span class="muted grow">${esc(fmtDiasSes(s.dias || []))}${s.hora ? ' · ' + esc(s.hora) : ' · sin horario'}</span><button class="ghost mini" data-a="ses-edit" data-id="${esc(s.id)}">${ICONO('calendario')} Días y horario</button></div></div>
       ${pendL.map(e => ejCard(e, k)).join('')}
-      ${hechosL.length || saltL.length ? `<h3 class="sub">${pendL.length ? 'Ya resuelto hoy' : 'Hecho hoy'}</h3>${hechosL.map(e => compacto(e, '✅', esc(dosisEj(e)))).join('')}${saltL.map(e => compacto(e, '⏭', 'hoy no')).join('')}` : ''}
+      ${hechosL.length || saltL.length ? `<h3 class="sub">${pendL.length ? 'Ya resuelto hoy' : 'Hecho hoy'}</h3>${hechosL.map(e => compacto(e, 'ok', esc(dosisEj(e)))).join('')}${saltL.map(e => compacto(e, 'salto', 'hoy no')).join('')}` : ''}
       ${ejs.length ? '' : '<p class="muted">Esta rutina todavía no tiene ejercicios. Agregalos en Ajustes.</p>'}`;
   }
   /* Evolución: % de las rutinas programadas que se completaron, por día (semana), por semana (mes, trimestre) o por mes (año). */
@@ -563,7 +597,7 @@
     <div class="card warn"><b>Cortá el ejercicio y consultá si aparece:</b><p>dolor fuerte, mareo, falta de aire, hormigueo u otra sensación rara. Los ejercicios de ejemplo son suaves, pero cada cuerpo es distinto: consultá con tu profesional.</p></div>
     ${tarjetaPendientes(true)}
     ${hoyS.length ? hoyS.map(s => sesionBloque(s, now)).join('') : '<div class="card"><b>Hoy no tenés rutina programada.</b></div>'}
-    ${otras.length ? `<details class="card"><summary>Otras rutinas (${otras.length})</summary>${otras.map(s => `<div class="row sp"><p class="muted">${esc(s.n)} · ${esc(fmtDiasSes(s.dias || []))}${s.hora ? ' · ' + esc(s.hora) : ''}</p><button class="ghost mini" data-a="ses-edit" data-id="${esc(s.id)}">📅 Días y horario</button></div>${ejDeSesion(s).map(e => ejCard(e)).join('')}`).join('')}</details>` : ''}
+    ${otras.length ? `<details class="card"><summary>Otras rutinas (${otras.length})</summary>${otras.map(s => `<div class="row sp"><p class="muted">${esc(s.n)} · ${esc(fmtDiasSes(s.dias || []))}${s.hora ? ' · ' + esc(s.hora) : ''}</p><button class="ghost mini" data-a="ses-edit" data-id="${esc(s.id)}">${ICONO('calendario')} Días y horario</button></div>${ejDeSesion(s).map(e => ejCard(e)).join('')}`).join('')}</details>` : ''}
     ${tarjetaEvolucion()}${anuncio('evolucion-ejercicio')}
     <div class="card"><button class="ghost" style="width:100%" data-a="tab" data-t="ajustes">Editar mi plan de ejercicio</button></div>${AVISO_PIE}`;
   }
@@ -699,21 +733,21 @@
       ${filas.length ? filas.map(r => filaMes(r, ant.dias ? ant.items.find(a => a.x.id === r.x.id) : null, estadoObjetivo(r, r.x.obj))).join('') : '<p class="muted">Todavía no elegiste qué anotar. Hacelo en la pestaña "Hoy".</p>'}
       ${res.cont.length ? `<h3 class="sub">Cantidades del mes</h3>${res.cont.map(r => `<div class="row sp"><span>${esc(r.c.n)}</span><b>${r.total}</b></div>`).join('')}` : ''}</div>
     ${res.conReg && sin.length ? `<div class="card warn"><b>${res.actual ? 'Hasta ahora' : 'En ' + res.nombre} no anotaste:</b><p>${sin.map(esc).join(', ')}.</p><small>Es solo un registro de lo que cargaste: ${pasado ? 'pensalo para el mes que viene.' : 'todavía estás a tiempo si querés sumarlo.'}</small></div>` : ''}
-    ${filas.length ? `<div class="card"><h3>Objetivos de ${esc(pasado ? proximo : res.nombre)}</h3><p class="muted">${pasado ? 'Entrá al mes nuevo con ganas: elegí cuántos días querés comer (o limitar) cada cosa.' : 'Si querés, fijá cuántos días querés comer (o limitar) cada cosa.'} Son tuyos y no son una indicación médica.</p><button class="pri" style="width:100%" data-a="com-obj">🎯 Elegir mis objetivos</button></div>` : ''}`;
+    ${filas.length ? `<div class="card"><h3>Objetivos de ${esc(pasado ? proximo : res.nombre)}</h3><p class="muted">${pasado ? 'Entrá al mes nuevo con ganas: elegí cuántos días querés comer (o limitar) cada cosa.' : 'Si querés, fijá cuántos días querés comer (o limitar) cada cosa.'} Son tuyos y no son una indicación médica.</p><button class="pri" style="width:100%" data-a="com-obj">${ICONO('objetivo')} Elegir mis objetivos</button></div>` : ''}`;
   }
   function subComida() {
     const items = S.comida.items, m = marcasDia(), hoyD = new Date(), res = resumenMes(new Date(hoyD.getFullYear(), hoyD.getMonth(), 1)), lunes = lunesDe(hoyD);
     const subs = [['hoy', 'Hoy'], ['mes', 'Mi mes']];
-    if (!items.length && !S.comida.contadores.length) return `<div class="card"><h3>¿Qué comés cada día?</h3><p>Elegí qué querés anotar (después sumás lo tuyo). Cada día tocás lo que comiste, y a fin de mes ves el resumen.</p>${SUGERENCIAS_COMIDA.map((t, i) => `<button class="chk-it ${sugSel.has(i) ? 'on' : ''}" data-a="com-sug" data-v="${i}" aria-pressed="${sugSel.has(i) ? 'true' : 'false'}"><span>${sugSel.has(i) ? '✅' : '⬜'}</span>${esc(t)}</button>`).join('')}<div class="row"><button class="pri grow" data-a="com-sug-ok" ${sugSel.size ? '' : 'disabled'}>Agregar ${sugSel.size ? 'las ' + sugSel.size + ' elegidas' : 'las elegidas'}</button><button class="ghost grow" data-a="com-add">Agregar la mía</button></div><h3 class="sub">O contá cantidades por día (porciones)</h3><div class="row">${CONTADORES_SUG.map(n => `<button class="ghost mini" data-a="ct-sug" data-v="${esc(n)}">➕ ${esc(n)}</button>`).join('')}</div><small>Son ejemplos: anotá lo que quieras seguir, con tu profesional si corresponde.</small></div>`;
+    if (!items.length && !S.comida.contadores.length) return `<div class="card"><h3>¿Qué comés cada día?</h3><p>Elegí qué querés anotar (después sumás lo tuyo). Cada día tocás lo que comiste, y a fin de mes ves el resumen.</p>${SUGERENCIAS_COMIDA.map((t, i) => `<button class="chk-it ${sugSel.has(i) ? 'on' : ''}" data-a="com-sug" data-v="${i}" aria-pressed="${sugSel.has(i) ? 'true' : 'false'}"><span>${sugSel.has(i) ? ICONO('tilde-on') : ICONO('tilde-off')}</span>${esc(t)}</button>`).join('')}<div class="row"><button class="pri grow" data-a="com-sug-ok" ${sugSel.size ? '' : 'disabled'}>Agregar ${sugSel.size ? 'las ' + sugSel.size + ' elegidas' : 'las elegidas'}</button><button class="ghost grow" data-a="com-add">Agregar la mía</button></div><h3 class="sub">O contá cantidades por día (porciones)</h3><div class="row">${CONTADORES_SUG.map(n => `<button class="ghost mini" data-a="ct-sug" data-v="${esc(n)}">${ICONO('mas')} ${esc(n)}</button>`).join('')}</div><small>Son ejemplos: anotá lo que quieras seguir, con tu profesional si corresponde.</small></div>`;
     const sel = segBtns(subs, subCom === 'mes' ? 'mes' : 'hoy', 'sub-com');
     if (subCom === 'mes') return sel + vistaMes();
-    return `${sel}<div class="card"><h3>¿Qué comiste hoy?</h3>${items.map(it => `<button class="chk-it ${m[it.id] ? 'on' : ''}" data-a="com-t" data-id="${esc(it.id)}" aria-pressed="${m[it.id] ? 'true' : 'false'}"><span>${m[it.id] ? '✅' : '⬜'}</span>${esc(it.n)}</button>`).join('') || '<p class="muted">Todavía no elegiste qué anotar.</p>'}
+    return `${sel}<div class="card"><h3>¿Qué comiste hoy?</h3>${items.map(it => `<button class="chk-it ${m[it.id] ? 'on' : ''}" data-a="com-t" data-id="${esc(it.id)}" aria-pressed="${m[it.id] ? 'true' : 'false'}"><span>${m[it.id] ? ICONO('tilde-on') : ICONO('tilde-off')}</span>${esc(it.n)}</button>`).join('') || '<p class="muted">Todavía no elegiste qué anotar.</p>'}
       <small>Tocá lo que comiste hoy. A fin de mes ves cuántos días comiste cada cosa y qué no comiste.</small></div>
     ${S.comida.contadores.map(ct => `<div class="card"><h3>${esc(ct.n)}</h3><div class="stepper"><button data-a="cont-" data-id="${esc(ct.id)}" aria-label="Una menos">−</button><span>${contDia(ct.id)}</span><button data-a="cont+" data-id="${esc(ct.id)}" aria-label="Una más">+</button></div>${meter('Esta semana (veces)', contSemana(ct, lunes), ct.meta)}</div>`).join('')}
     <div class="card"><div class="row sp"><span>Este mes anotaste comidas <b>${res.conReg} de ${res.dias}</b> días.</span><button class="ghost mini" data-a="com-mes">Ver mi mes</button></div></div>
     <div class="card"><div class="row"><button class="ghost grow" data-a="com-add">Agregar la mía</button><button class="ghost grow" data-a="com-sugs">Sugerencias</button></div>
-      ${CONTADORES_SUG.filter(n => !S.comida.contadores.some(x => x.n === n)).length ? `<h3 class="sub">Cantidades por día (porciones)</h3><div class="row">${CONTADORES_SUG.filter(n => !S.comida.contadores.some(x => x.n === n)).map(n => `<button class="ghost mini" data-a="ct-sug" data-v="${esc(n)}">➕ ${esc(n)}</button>`).join('')}<button class="ghost mini" data-a="ct-nuevo">➕ Otro</button></div>` : '<div class="row" style="margin-top:8px"><button class="ghost mini" data-a="ct-nuevo">➕ Otro contador</button></div>'}
-      <div class="row" style="margin-top:8px"><button class="ghost grow" data-a="rec-nuevo">🔔 Que me recuerde algo</button></div>
+      ${CONTADORES_SUG.filter(n => !S.comida.contadores.some(x => x.n === n)).length ? `<h3 class="sub">Cantidades por día (porciones)</h3><div class="row">${CONTADORES_SUG.filter(n => !S.comida.contadores.some(x => x.n === n)).map(n => `<button class="ghost mini" data-a="ct-sug" data-v="${esc(n)}">${ICONO('mas')} ${esc(n)}</button>`).join('')}<button class="ghost mini" data-a="ct-nuevo">${ICONO('mas')} Otro</button></div>` : `<div class="row" style="margin-top:8px"><button class="ghost mini" data-a="ct-nuevo">${ICONO('mas')} Otro contador</button></div>`}
+      <div class="row" style="margin-top:8px"><button class="ghost grow" data-a="rec-nuevo">${ICONO('campana')} Que me recuerde algo</button></div>
       <small>También podés renombrar o quitar lo que anotás en Ajustes → Alimentación.</small></div>`;
   }
 
@@ -723,9 +757,9 @@
   function viewAjustes() {
     const s = S.settings;
     const campoNum = (n, l, v, ph, extra = '') => `<div><label for="s_${n}">${l}</label><input id="s_${n}" name="${n}" type="number" inputmode="decimal" step="any" value="${v == null ? '' : v}" placeholder="${esc(ph || '')}" ${extra}></div>`;
-    const modo = `<div class="card"><h3>Modo de uso</h3>${MODOS.map(([k, n, t]) => `<button class="opcion ${S.modo === k ? 'on' : ''}" data-a="modo" data-v="${k}" aria-pressed="${S.modo === k ? 'true' : 'false'}"><b>${n}</b><small>${t}</small></button>`).join('')}${NATIVE ? '<div class="row" style="margin-top:8px"><button class="ghost grow" data-a="probar-aviso">🔔 Probar un aviso ahora</button></div>' : ''}${NATIVE ? '' : '<small>Los recordatorios con la app cerrada funcionan en la app Android.</small>'}</div>`;
+    const modo = `<div class="card"><h3>Modo de uso</h3>${MODOS.map(([k, n, t]) => `<button class="opcion ${S.modo === k ? 'on' : ''}" data-a="modo" data-v="${k}" aria-pressed="${S.modo === k ? 'true' : 'false'}"><b>${n}</b><small>${t}</small></button>`).join('')}${NATIVE ? `<div class="row" style="margin-top:8px"><button class="ghost grow" data-a="probar-aviso">${ICONO('campana')} Probar un aviso ahora</button></div>` : ''}${NATIVE ? '' : '<small>Los recordatorios con la app cerrada funcionan en la app Android.</small>'}</div>`;
     const colorCard = `<div class="card"><h3>Color de la app</h3><div class="colores">${Object.keys(COLORES).map(k => `<button class="color ${(COLORES[s.color] ? s.color : 'coral') === k ? 'on' : ''}" data-a="color" data-v="${k}" aria-pressed="${(COLORES[s.color] ? s.color : 'coral') === k ? 'true' : 'false'}"><i class="sw sw-${k}"></i>${COLORES[k][0]}</button>`).join('')}</div></div>`;
-    const mods = `<div class="card"><h3>Qué querés seguir</h3>${MODULOS.map(([k, ic, n]) => `<label class="chk"><input type="checkbox" data-a="mod-t" data-k="${k}" ${mod(k) ? 'checked' : ''}>${ic} ${n}</label>`).join('')}<small>Si desactivás algo, lo que cargaste se conserva.</small></div>`;
+    const mods = `<div class="card"><h3>Qué querés seguir</h3>${MODULOS.map(([k, ic, n]) => `<label class="chk"><input type="checkbox" data-a="mod-t" data-k="${k}" ${mod(k) ? 'checked' : ''}>${ICONO(ic)} ${n}</label>`).join('')}<small>Si desactivás algo, lo que cargaste se conserva.</small></div>`;
     const metas = `<form data-f="metas" class="card"><h3>Metas y recordatorios</h3><small>Todas son opcionales y las definís vos (con tu profesional, si corresponde). Dejá vacío para no tener meta.</small>
       ${mod('agua') ? `<div class="grid2">${campoNum('metaAgua', 'Meta de agua (ml/día)', s.metaAgua, 'Ej: 2000')}${campoNum('vaso', 'Tamaño del vaso (ml)', s.vaso, '', 'required min="1"')}</div>
         <label class="chk"><input type="checkbox" name="recAgua" ${s.recAgua ? 'checked' : ''}>Recordarme tomar agua${conRecordatorios() ? '' : ' (activá un modo con recordatorios)'}</label>
@@ -746,7 +780,7 @@
       <div class="row" style="margin-top:8px"><button class="pri grow" data-a="ej-nuevo">Nuevo ejercicio</button><button class="ghost grow" data-a="plan-bib">Desde la biblioteca</button></div>
       <div class="row" style="margin-top:8px"><button class="ghost grow" data-a="ses-nueva">Nueva rutina</button></div></div>`;
     const meds = !mod('medidas') ? '' : `<div class="card"><h3>Mis mediciones</h3><small>Los límites, los avisos y cada cuánto repetir los definís en "Configurar".</small>
-      <ul class="list">${S.medidas.map(m => `<li><span>${CATALOGO[m.tipo] ? CATALOGO[m.tipo].ic : '📏'} ${esc(m.n)}</span><span class="row"><button class="ghost mini" data-a="med-conf" data-id="${esc(m.id)}">Configurar</button><button class="dang mini" data-a="med-del" data-id="${esc(m.id)}">Quitar</button></span></li>`).join('') || '<li class="muted">Todavía ninguna</li>'}</ul>
+      <ul class="list">${S.medidas.map(m => `<li><span>${ICONO(CATALOGO[m.tipo] ? CATALOGO[m.tipo].ic : 'propia')} ${esc(m.n)}</span><span class="row"><button class="ghost mini" data-a="med-conf" data-id="${esc(m.id)}">Configurar</button><button class="dang mini" data-a="med-del" data-id="${esc(m.id)}">Quitar</button></span></li>`).join('') || '<li class="muted">Todavía ninguna</li>'}</ul>
       <div class="row"><button class="pri grow" data-a="med-nueva">Agregar medición</button></div></div>`;
     const com = !mod('comida') ? '' : `<div class="card"><h3>Alimentación</h3><small>Lo que anotás cada día y tus contadores. Los objetivos del mes se fijan desde Hábitos → Alimentación → Mi mes.</small>
       <ul class="list">${S.comida.items.map(it => `<li><span>${esc(it.n)}</span><span class="row"><button class="ghost mini" data-a="ci-ren" data-id="${esc(it.id)}">Renombrar</button><button class="dang mini" data-a="ci-del" data-id="${esc(it.id)}">Quitar</button></span></li>`).join('') || '<li class="muted">Todavía nada</li>'}</ul>
@@ -769,7 +803,7 @@
       <div class="row"><button class="ghost grow" data-a="wiz-rehacer">Rehacer el asistente inicial</button></div></div>
     <div class="card"><h3>Anuncios</h3><label class="chk"><input type="checkbox" data-a="anuncios-demo" ${s.anunciosDemo !== false ? 'checked' : ''}>Mostrar el espacio de anuncios de ejemplo</label><small>Es solo para ver cómo quedaría: todavía no hay publicidad real.</small></div>${anuncio('ajustes')}`;
     const recs = `<div class="card"><h3>Mis recordatorios</h3><small>Lo que quieras que te recuerde: una fruta, la medicación, estirar… Funcionan con los modos que incluyen recordatorios.</small>
-      <ul class="list">${S.recordatorios.map(r => `<li><span>🔔 ${esc(r.txt)}<small>${esc(fmtDiasSes(r.dias || []))} · ${esc(r.hora)}</small></span><span class="row"><button class="ghost mini" data-a="rec-edit" data-id="${esc(r.id)}">Editar</button><button class="dang mini" data-a="rec-del" data-id="${esc(r.id)}">Quitar</button></span></li>`).join('') || '<li class="muted">Todavía ninguno</li>'}</ul>
+      <ul class="list">${S.recordatorios.map(r => `<li><span>${ICONO('campana')} ${esc(r.txt)}<small>${esc(fmtDiasSes(r.dias || []))} · ${esc(r.hora)}</small></span><span class="row"><button class="ghost mini" data-a="rec-edit" data-id="${esc(r.id)}">Editar</button><button class="dang mini" data-a="rec-del" data-id="${esc(r.id)}">Quitar</button></span></li>`).join('') || '<li class="muted">Todavía ninguno</li>'}</ul>
       <div class="row"><button class="pri grow" data-a="rec-nuevo">Agregar recordatorio</button></div></div>`;
     const salud = !NATIVE ? '' : `<div class="card"><h3>Datos de tu reloj o pulsera</h3><small>Si tu reloj o pulsera guarda la saturación y el pulso en Health Connect (Samsung Health, Google Fit, Xiaomi…), podés traerlos acá. Solo se leen esos dos datos; no se modifica nada.</small>
       <div class="row" style="margin-top:8px"><button class="pri grow" data-a="salud-importar">Traer saturación y pulso</button></div>
@@ -794,9 +828,9 @@
     let cuerpo = '';
     if (p === 'bienvenida') cuerpo = `<h2>Bienvenido a A Mi Ritmo</h2><p>Es una libreta para armar <b>tu propio plan de hábitos de salud</b> y anotar tus avances. Vos elegís qué seguir, cuánto y con qué límites. Lo que cargues queda en tu teléfono.</p>
       <div class="card warn"><b>Importante</b><p>A Mi Ritmo no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p></div>`;
-    if (p === 'modulos') cuerpo = `<h2>¿Qué querés seguir?</h2><p class="muted">Elegí lo que te sirva. Podés cambiarlo cuando quieras.</p>${MODULOS.map(([k, ic, n, t]) => `<button class="chk-it ${wiz.mods[k] ? 'on' : ''}" data-a="wiz-mod" data-k="${k}" aria-pressed="${wiz.mods[k] ? 'true' : 'false'}"><span>${wiz.mods[k] ? '✅' : '⬜'}</span><span class="tx"><b>${ic} ${n}</b><small>${t}</small></span></button>`).join('')}`;
-    if (p === 'mediciones') cuerpo = `<h2>¿Qué querés medir?</h2><p class="muted">Después podés poner tus propios límites en cada una (opcional).</p>${Object.keys(CATALOGO).map(k => `<button class="chk-it ${wiz.meds[k] ? 'on' : ''}" data-a="wiz-med" data-k="${k}" aria-pressed="${wiz.meds[k] ? 'true' : 'false'}"><span>${wiz.meds[k] ? '✅' : '⬜'}</span>${CATALOGO[k].ic} ${esc(CATALOGO[k].n)}</button>`).join('')}`;
-    if (p === 'ejercicio') cuerpo = `<h2>Tu rutina de ejercicio</h2><p class="muted">Elegí ejemplos para empezar o salteá este paso y creá tus propios ejercicios después. Son ejemplos suaves, <b>no una indicación</b>: consultalos con tu profesional.</p><p class="muted">Los de espalda y core van en una rutina aparte, para que elijas sus propios días y horario (en Ajustes → Mi plan de ejercicio).</p>${BIBLIOTECA.map((b, n) => `${n === 0 || grupoBib(b) !== grupoBib(BIBLIOTECA[n - 1]) ? `<h3 class="sub">${GRUPOS_BIB[grupoBib(b)].titulo}</h3>` : ''}<button class="chk-it ${wiz.bib[n] ? 'on' : ''}" data-a="wiz-bib" data-k="${n}" aria-pressed="${wiz.bib[n] ? 'true' : 'false'}"><span>${wiz.bib[n] ? '✅' : '⬜'}</span><span class="tx"><b>${esc(b.n)}</b><small>${esc(dosisEj(b))}</small></span></button>`).join('')}`;
+    if (p === 'modulos') cuerpo = `<h2>¿Qué querés seguir?</h2><p class="muted">Elegí lo que te sirva. Podés cambiarlo cuando quieras.</p>${MODULOS.map(([k, ic, n, t]) => `<button class="chk-it ${wiz.mods[k] ? 'on' : ''}" data-a="wiz-mod" data-k="${k}" aria-pressed="${wiz.mods[k] ? 'true' : 'false'}"><span>${wiz.mods[k] ? ICONO('tilde-on') : ICONO('tilde-off')}</span><span class="tx"><b>${ICONO(ic)} ${n}</b><small>${t}</small></span></button>`).join('')}`;
+    if (p === 'mediciones') cuerpo = `<h2>¿Qué querés medir?</h2><p class="muted">Después podés poner tus propios límites en cada una (opcional).</p>${Object.keys(CATALOGO).map(k => `<button class="chk-it ${wiz.meds[k] ? 'on' : ''}" data-a="wiz-med" data-k="${k}" aria-pressed="${wiz.meds[k] ? 'true' : 'false'}"><span>${wiz.meds[k] ? ICONO('tilde-on') : ICONO('tilde-off')}</span>${ICONO(CATALOGO[k].ic)} ${esc(CATALOGO[k].n)}</button>`).join('')}`;
+    if (p === 'ejercicio') cuerpo = `<h2>Tu rutina de ejercicio</h2><p class="muted">Elegí ejemplos para empezar o salteá este paso y creá tus propios ejercicios después. Son ejemplos suaves, <b>no una indicación</b>: consultalos con tu profesional.</p><p class="muted">Los de espalda y core van en una rutina aparte, para que elijas sus propios días y horario (en Ajustes → Mi plan de ejercicio).</p>${BIBLIOTECA.map((b, n) => `${n === 0 || grupoBib(b) !== grupoBib(BIBLIOTECA[n - 1]) ? `<h3 class="sub">${GRUPOS_BIB[grupoBib(b)].titulo}</h3>` : ''}<button class="chk-it ${wiz.bib[n] ? 'on' : ''}" data-a="wiz-bib" data-k="${n}" aria-pressed="${wiz.bib[n] ? 'true' : 'false'}"><span>${wiz.bib[n] ? ICONO('tilde-on') : ICONO('tilde-off')}</span><span class="tx"><b>${esc(b.n)}</b><small>${esc(dosisEj(b))}</small></span></button>`).join('')}`;
     if (p === 'modo') cuerpo = `<h2>¿Cómo querés usarla?</h2>${MODOS.map(([k, n, t]) => `<button class="opcion ${wiz.modo === k ? 'on' : ''}" data-a="wiz-modo" data-v="${k}" aria-pressed="${wiz.modo === k ? 'true' : 'false'}"><b>${n}</b><small>${t}</small></button>`).join('')}`;
     if (p === 'metas') cuerpo = `<h2>Tus metas (opcional)</h2><p class="muted">Dejá vacío lo que no quieras fijar. Si no sabés qué poner, consultalo con tu profesional.</p><form data-f="wizmetas">
       ${wiz.mods.agua ? campoNum('metaAgua', 'Agua por día (ml)', s.metaAgua, 'Ej: 2000') : ''}${wiz.mods.pasos ? campoNum('metaPasos', 'Pasos por día', s.metaPasos, 'Ej: 8000') : ''}${wiz.mods.actividad ? campoNum('aeroMeta', 'Actividad aeróbica (min por semana)', s.aeroMeta, 'Ej: 150') : ''}</form>`;
@@ -1417,7 +1451,7 @@
     for (let m = minAviso(s.aguaDesde), i = 0; m < minAviso(s.aguaHasta) && i < 60; m += Math.max(15, s.recMin), i++) if (m <= ahoraMin) pasados++;
     return Math.max(0, pasados - Math.floor((peek().agua || 0) / s.vaso));
   }
-  const tarjetaAguaPend = () => { const p = pendientesAgua(); return p ? `<div class="card warn"><b>💧 ${p === 1 ? 'Te quedó 1 vaso' : 'Te quedaron ' + p + ' vasos'} por tomar</b><p>Son los avisos de hoy que todavía no marcaste. Cada vez que marcás un vaso baja uno.</p></div>` : ''; };
+  const tarjetaAguaPend = () => { const p = pendientesAgua(); return p ? `<div class="card warn"><b>${ICONO('agua')} ${p === 1 ? 'Te quedó 1 vaso' : 'Te quedaron ' + p + ' vasos'} por tomar</b><p>Son los avisos de hoy que todavía no marcaste. Cada vez que marcás un vaso baja uno.</p></div>` : ''; };
   async function sacarAvisoAgua() { // en Android, al marcar un vaso se saca de la barra UNA notificación de agua (la más vieja)
     const N = plug('LocalNotifications'); if (!N || !N.getDeliveredNotifications) return;
     try { const l = ((await N.getDeliveredNotifications()).notifications || []).filter(x => x.id >= 1000 && x.id < 2000).sort((a, b) => a.id - b.id); if (l.length) await N.removeDeliveredNotifications({ notifications: [{ id: l[0].id }] }); } catch (e) { /* nada */ }
