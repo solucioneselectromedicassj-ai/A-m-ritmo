@@ -23,6 +23,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(StepCounterPlugin.class);
+        registerPlugin(HealthSyncPlugin.class);
         super.onCreate(savedInstanceState);
         final float density = getResources().getDisplayMetrics().density;
         View raiz = getWindow().getDecorView();

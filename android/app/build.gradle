@@ -46,6 +46,9 @@ dependencies {
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation "androidx.work:work-runtime:2.10.0"
     implementation "com.google.guava:guava:33.4.0-android"
+    // Health Connect (lectura de saturación y pulso de relojes y pulseras)
+    implementation "androidx.health.connect:connect-client:1.2.0-alpha01"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0"
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"

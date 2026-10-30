@@ -24,6 +24,28 @@
 
         </activity>
 
+        <!-- Health Connect: pantalla de "por qué pedimos estos permisos" (Android hasta 13). -->
+        <activity
+            android:name=".PermisosSaludActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.DeviceDefault.Light">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+
+        <!-- Idem para Android 14 en adelante. -->
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".PermisosSaludActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -35,10 +57,17 @@
         </provider>
     </application>
 
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- Solo lectura de saturación y pulso (opcional: si la persona lo activa). -->
+    <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
     <uses-feature android:name="android.hardware.sensor.stepcounter" android:required="false" />
 </manifest>

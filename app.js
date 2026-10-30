@@ -48,6 +48,7 @@
       { k: 'ldl', n: 'LDL', u: 'mg/dL', r: [10, 600], opc: true }, { k: 'hdl', n: 'HDL', u: 'mg/dL', r: [5, 200], opc: true },
       { k: 'total', n: 'Total', u: 'mg/dL', r: [50, 800], opc: true }, { k: 'tg', n: 'Triglicéridos', u: 'mg/dL', r: [10, 3000], opc: true }] },
     spo2: { n: 'Saturación de oxígeno', ic: '🫁', campos: [{ k: 'sat', n: 'Saturación', u: '%', r: [50, 100] }, { k: 'pul', n: 'Pulso', u: 'lpm', r: [25, 250], opc: true }] },
+    pulso: { n: 'Pulso', ic: '💓', campos: [{ k: 'pul', n: 'Pulso', u: 'lpm', r: [25, 250] }] },
     glucosa: { n: 'Glucosa', ic: '🍬', campos: [{ k: 'g', n: 'Glucosa', u: 'mg/dL', r: [10, 900] }] },
     propia: { n: 'Otra medición', ic: '📏', campos: [{ k: 'v', n: 'Valor', u: '', r: [-1000000, 1000000], dec: 2 }] }
   };
@@ -108,7 +109,7 @@
   const DEFAULTS = () => ({
     v: VERSION, listo: false, modo: 'registro',
     modulos: { ejercicio: false, pasos: false, agua: false, actividad: false, comida: false, medidas: false },
-    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, avisoAceptado: 0, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
+    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, hcUltimo: 0, hcAuto: false, avisoAceptado: 0, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
       ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', color: 'coral', informe: { periodo: 90, excluir: {} } },
     ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, recup: {}, cerrados: {}, recordatorios: [], sensor: null
   });
@@ -694,7 +695,11 @@
     const recs = `<div class="card"><h3>Mis recordatorios</h3><small>Lo que quieras que te recuerde: una fruta, la medicación, estirar… Funcionan con los modos que incluyen recordatorios.</small>
       <ul class="list">${S.recordatorios.map(r => `<li><span>🔔 ${esc(r.txt)}<small>${esc(fmtDiasSes(r.dias || []))} · ${esc(r.hora)}</small></span><span class="row"><button class="ghost mini" data-a="rec-edit" data-id="${esc(r.id)}">Editar</button><button class="dang mini" data-a="rec-del" data-id="${esc(r.id)}">Quitar</button></span></li>`).join('') || '<li class="muted">Todavía ninguno</li>'}</ul>
       <div class="row"><button class="pri grow" data-a="rec-nuevo">Agregar recordatorio</button></div></div>`;
-    return `<h2>Ajustes</h2>${modo}${mods}${colorCard}${metas}${plan}${meds}${com}${recs}${informe}${datos}`;
+    const salud = !NATIVE ? '' : `<div class="card"><h3>Datos de tu reloj o pulsera</h3><small>Si tu reloj o pulsera guarda la saturación y el pulso en Health Connect (Samsung Health, Google Fit, Xiaomi…), podés traerlos acá. Solo se leen esos dos datos; no se modifica nada.</small>
+      <div class="row" style="margin-top:8px"><button class="pri grow" data-a="salud-importar">Traer saturación y pulso</button></div>
+      <label class="chk"><input type="checkbox" data-a="salud-auto" ${s.hcAuto ? 'checked' : ''}>Traerlos solos al abrir la app</label>
+      <small>${s.hcUltimo ? 'Última vez: ' + fmtFecha(ymd(new Date(s.hcUltimo))) + ' ' + pad(new Date(s.hcUltimo).getHours()) + ':' + pad(new Date(s.hcUltimo).getMinutes()) + '.' : 'Todavía no trajiste nada.'} La primera vez trae el último mes. Son lecturas de un reloj: no reemplazan un saturómetro ni la consulta con tu médico.</small></div>`;
+    return `<h2>Ajustes</h2>${modo}${mods}${colorCard}${metas}${plan}${meds}${com}${recs}${salud}${informe}${datos}`;
   }
 
   /* ---------- Asistente inicial ---------- */
@@ -833,6 +838,47 @@
     try { await navigator.clipboard.writeText(JSON.stringify(S, null, 2)); marcarRespaldo(); toast('Respaldo copiado: pegalo en una nota o en un mensaje a vos mismo'); render(); } catch (e) { toast('No se pudo copiar'); }
   }
   /* ---------- Importar el respaldo de "Salud Activa" (la app personal anterior) ---------- */
+  /* ---------- Traer saturación y pulso de un reloj o pulsera (Health Connect, Android) ---------- */
+  const ORIGEN_SALUD = { 'com.sec.android.app.shealth': 'Samsung Health', 'com.google.android.apps.fitness': 'Google Fit', 'com.google.android.apps.healthdata': 'Health Connect', 'com.xiaomi.wearable': 'Xiaomi', 'com.huawei.health': 'Huawei Health', 'com.fitbit.FitbitMobile': 'Fitbit', 'com.garmin.android.apps.connectmobile': 'Garmin' };
+  // r = { spo2: [{id, t, v, pul?, origen}], pulso: [{id, t, v, origen}] }; no repite lecturas ya traídas (se reconocen por su id) ni inventa nada.
+  function fusionarSalud(r) {
+    const out = { spo2: 0, pulso: 0, repetidos: 0, invalidos: 0 };
+    const asegurar = tipo => {
+      let m = S.medidas.find(x => x.tipo === tipo);
+      if (!m) { m = nuevaMedida(tipo); m.id = 'm_' + tipo; if (S.medidas.some(x => x.id === m.id)) m.id = uid('m'); S.medidas.push(m); S.modulos.medidas = true; }
+      return S.registros[m.id] = S.registros[m.id] || [];
+    };
+    const hora = t => `${pad(new Date(t).getHours())}:${pad(new Date(t).getMinutes())}`, nombre = o => ORIGEN_SALUD[o] || String(o || 'Health Connect').slice(0, 40);
+    const num = x => (x === null || x === '' || !Number.isFinite(Number(x)) ? null : Number(x));
+    const lista = (arr, tipo, armar) => (Array.isArray(arr) ? arr : []).forEach(x => {
+      if (!esObjeto(x) || !x.id || !Number.isFinite(x.t)) { out.invalidos++; return; }
+      const q = armar(x); if (!q) { out.invalidos++; return; }
+      const regs = asegurar(tipo);
+      if (regs.some(y => y && y.hc === String(x.id))) { out.repetidos++; return; }
+      regs.push(Object.assign({ fecha: ymd(new Date(x.t)), hora: hora(x.t) }, q, { hc: String(x.id), origen: nombre(x.origen) })); out[tipo === 'spo2' ? 'spo2' : 'pulso']++;
+    });
+    lista(r && r.spo2, 'spo2', x => { const v = num(x.v); if (!(v >= 50 && v <= 100)) return null; const p = num(x.pul); return Object.assign({ sat: Math.round(v) }, p >= 25 && p <= 250 ? { pul: Math.round(p) } : {}); });
+    lista(r && r.pulso, 'pulso', x => { const v = num(x.v); return v >= 25 && v <= 250 ? { pul: Math.round(v) } : null; });
+    return out;
+  }
+  let importandoSalud = false;
+  async function importarSalud(manual) {
+    const P = plug('HealthSync'); if (!P) return manual && toast('Esto funciona solo en la app de Android.');
+    if (importandoSalud) return; importandoSalud = true;
+    try {
+      const est = (await conTiempo(P.isAvailable(), 10000)).status;
+      if (est !== 'available') { if (manual) toast(est === 'update' ? 'Actualizá Health Connect desde Play Store y probá de nuevo.' : 'Instalá Health Connect desde Play Store (es gratis) para traer los datos de tu reloj.'); return; }
+      let p = await conTiempo(P.hasPermission(), 15000);
+      if (!p.granted && manual) p = await conTiempo(P.requestPermission(), 180000);
+      if (!p.granted) { if (manual) toast('Faltan permisos: en Health Connect permití a A Mi Ritmo leer saturación y pulso.'); return; }
+      const hasta = Date.now(), desde = S.settings.hcUltimo ? S.settings.hcUltimo - 86400e3 : hasta - 30 * 86400e3;   // la primera vez trae el último mes
+      const r = await conTiempo(P.leer({ desde, hasta }), 60000), n = fusionarSalud(r);
+      S.settings.hcUltimo = hasta; if (manual) S.settings.hcAuto = true;
+      changed();
+      if (manual) toast(n.spo2 + n.pulso ? `Se sumaron ${n.spo2} ${n.spo2 === 1 ? 'saturación' : 'saturaciones'} y ${n.pulso} pulso${n.pulso === 1 ? '' : 's'}.` : (n.repetidos ? 'No hay datos nuevos desde la última vez.' : 'No encontré datos de saturación ni de pulso en tu reloj. Revisá que lo guarde en Health Connect.'));
+    } catch (e) { if (manual) toast('No se pudieron traer los datos: ' + esc((e && (e.message || e)) || 'error')); }
+    finally { importandoSalud = false; }
+  }
   const SA_RUTINA = [['giros', 'Giros de cadera', 30, 'Círculos amplios pero suaves, sin forzar la zona lumbar.'], ['brazos', 'Estiramiento de brazos a los costados', 10, 'Respirá con normalidad, sin aguantar el aire.'], ['piernas', 'Flexiones de piernas', 15, 'Rodillas alineadas con la punta de los pies.'],
     ['aperturas', 'Aperturas de brazos y espalda', 15, 'Abrí el pecho llevando los omóplatos hacia atrás, sin arquear la zona lumbar.'], ['rodillas', 'Levantamiento de rodillas', 20, 'Torso erguido, ritmo cómodo.'], ['agacharse', 'Agacharse (arriba y abajo)', 10, 'Doblá caderas y rodillas con la espalda recta; no dobles la cintura.']];
   const SA_CORE = [['gato', 'Gato-camello', 2, 8, 0, 'En cuatro apoyos, redondeá y arqueá la espalda despacio, solo hasta donde no duela.'], ['bird', 'Bird-dog (brazo y pierna opuestos)', 2, 6, 0, 'Estirá brazo y pierna contrarios, mantené 3-5 s con la pelvis quieta.'],
@@ -933,6 +979,7 @@
         h += chart([{ name: c.n, pts: rows.filter(r => r[c.k] != null).slice(0, 30).map(r => ({ t: tsFecha(r.fecha), v: r[c.k] })) }], { label: 'Evolución de ' + c.n + ' (' + m.n + ')', band, lines, dec: c.dec || 0 });
       });
     });
+    if (mod('medidas') && S.medidas.some(m => (S.registros[m.id] || []).some(r => r && r.hc))) h += '<p class="peque">Algunas lecturas de saturación o pulso fueron importadas de un reloj o pulsera (Health Connect): son estimaciones y no reemplazan un saturómetro.</p>';
     if (mod('ejercicio') && inc('ejercicio')) {
       let prog = 0, hechas = 0;
       dias.forEach(k => sesionesDelDia(fechaLocal(k)).forEach(se => { if (ejDeSesion(se).length) { prog++; if (sesionHecha(se, k)) hechas++; } }));
@@ -1142,6 +1189,7 @@
       case 'motion': toggleMotion(); break;
       case 'sensor-sync': S.settings.pasosRechazos = 0; syncSensor(true); break;
       case 'probar-aviso': probarAviso(); break;
+      case 'salud-importar': importarSalud(true); break;
       case 'bg-toggle': toggleSegundoPlano(); break;
       case 'pasos-add': case 'pasos-set': {
         const n = Math.round(num($('#pasosInput').value));
@@ -1193,6 +1241,7 @@
   document.addEventListener('change', e => {
     const t = e.target;
     if (t.id === 'fileIn' && t.files[0]) importar(t.files[0]);
+    if (t.dataset && t.dataset.a === 'salud-auto') { S.settings.hcAuto = t.checked; save(); if (t.checked) importarSalud(true); }
     if (t.dataset && t.dataset.a === 'mod-t') { S.modulos[t.dataset.k] = t.checked; save(); setupReminders(); render(); if (t.dataset.k === 'pasos' && t.checked) iniciarPasos(); }
   });
 
@@ -1355,7 +1404,7 @@
     }, 60000);
   }
 
-  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); else if (NATIVE) syncSensor(false); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); else if (NATIVE) { syncSensor(false); if (S.settings.hcAuto && Date.now() - (S.settings.hcUltimo || 0) > 30 * 60000) importarSalud(false); } });
   window.addEventListener('pagehide', save);
   let sigHabil = firmaHabil();
   setInterval(() => { const f = firmaHabil(); if (f !== sigHabil) { sigHabil = f; if (tab === 'hoy' && !wiz) render(); } }, 30000);   // al llegar la hora de una rutina, su tarjeta se habilita sola
@@ -1375,10 +1424,10 @@
   aplicarColor();
   iniciarBienvenida();
   render();
-  if (NATIVE) { iniciarPasos().then(() => setupReminders(), () => setupReminders()); setInterval(() => syncSensor(false), 5 * 60000); } else setupReminders();
+  if (NATIVE) { iniciarPasos().then(() => setupReminders(), () => setupReminders()).then(() => { if (S.settings.hcAuto) importarSalud(false); }); setInterval(() => syncSensor(false), 5 * 60000); } else setupReminders();
   if (NATIVE) { /* arriba */ }
   else if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { });
 
   // Ganchos para pruebas automáticas.
-  window.SA = { leerInsets, state: () => S, render, go, chart, informeCuerpo, detectStep, step };
+  window.SA = { fusionarSalud, importarSalud, leerInsets, state: () => S, render, go, chart, informeCuerpo, detectStep, step };
 })();

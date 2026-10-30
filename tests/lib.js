@@ -66,7 +66,8 @@ async function abrir(opts = {}) {
         HealthPlugin: {},
         LocalNotifications: { getPending: () => ({ notifications: [] }), cancel: () => {}, checkPermissions: () => ({ display: 'granted' }), requestPermissions: () => ({ display: 'granted' }), createChannel: () => {}, schedule: () => {} },
         Filesystem: { writeFile: a => ({ uri: 'file:///cache/' + a.path }) },
-        Share: { share: () => ({}) }
+        Share: { share: () => ({}) },
+        HealthSync: { isAvailable: () => ({ status: 'available' }), hasPermission: () => ({ granted: false }), requestPermission: () => ({ granted: false }), leer: () => ({ spo2: [], pulso: [] }) }
       };
       const plugins = {};
       Object.keys(def).forEach(n => { plugins[n] = reg(n, Object.assign({}, def[n], (mocks && mocks[n]) || {})); });

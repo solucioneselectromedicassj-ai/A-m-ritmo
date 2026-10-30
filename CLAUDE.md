@@ -34,7 +34,7 @@ sw.js           service worker (cache-first), CACHE = 'amiritmo-vN'
 manifest.json, icon.svg, icon-192.png, icon-512.png
 tests/          Playwright + Chromium: `npm test`
 capacitor.config.json, package.json, scripts/build-web.js   empaquetado Android
-android/        proyecto Capacitor (appId ar.amiritmo.app), StepCounterPlugin + StepWorker (sensor de pasos en segundo plano)
+android/        proyecto Capacitor (appId ar.amiritmo.app), StepCounterPlugin + StepWorker (sensor de pasos en segundo plano), HealthSyncPlugin (Health Connect, solo lectura de saturación y pulso) + PermisosSaludActivity (pantalla de privacidad que exige Health Connect)
 .github/workflows/android.yml   compila el APK y lo publica como prerelease `apk-latest`
 ```
 
@@ -91,3 +91,4 @@ Las pruebas usan fecha simulada (lunes 19/10/2026) y simulan los plugins de Capa
 - Un ejercicio plegado que se está usando queda abierto al volver a dibujar la pantalla (`abiertosEj`).
 - **Aviso importante** (`AVISO_TXT`): ya no va en la bienvenida; es una tarjeta "Antes de empezar" arriba de Hoy con **"Entendí y acepto"** (`settings.avisoAceptado`), que queda releíble (con la fecha de aceptación) en Ajustes → "Aviso importante". El pie "ayuda personal, no reemplaza…" sigue en cada pantalla.
 - **Barra de estado (Android)**: la app se dibuja detrás; `MainActivity` expone `AndroidInsets.top()` (dp) y `leerInsets()` lo vuelca a `--inset-top`; `.nativo .top` deja `max(--inset-top, env(), 28px) + 8px`. En Hoy no hay tarjeta de "rutina completa" (el resumen ya dice ✅ ¡completo!).
+- **Traer saturación y pulso de un reloj (Health Connect, Android)**: Ajustes → "Datos de tu reloj o pulsera" (`importarSalud`, `fusionarSalud`). Plugin propio `HealthSync` (Java + `connect-client`): permisos `READ_OXYGEN_SATURATION` y `READ_HEART_RATE` (solo lectura). La saturación trae el pulso de la muestra más cercana (±5 min); los registros de pulso con ≤3 muestras (mediciones puntuales) entran como medición "Pulso" (`m_pulso`); el registro continuo del día NO se importa. Crea `m_spo2`/`m_pulso` si faltan; cada lectura guarda `hc` (id, para no repetir) y `origen`. Primera vez: último mes (Health Connect limita a 30 días antes del permiso); después desde la última vez −1 día. "Traerlos solos al abrir" (`hcAuto`) nunca pide permisos. El informe aclara que son lecturas de un reloj. **Para Play Store**: los permisos de Health Connect requieren la declaración de datos de salud en Play Console y la política de privacidad.
