@@ -252,3 +252,15 @@ details.mas>summary{min-height:44px;display:flex;align-items:center;cursor:point
 
 .meter-top{gap:12px}.meter-top>span:last-child{white-space:nowrap;font-weight:700}
 .nativo .top{padding-top:calc(max(var(--inset-top,0px),env(safe-area-inset-top,0px),28px) + 8px)}
+
+/* bloque plegado de ejercicios pendientes en Hoy */
+details.agrupa{padding:0}
+details.agrupa>summary{list-style:none;cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:16px 18px;min-height:56px;position:relative;padding-right:44px}
+details.agrupa>summary::-webkit-details-marker{display:none}
+details.agrupa>summary::after{content:"›";position:absolute;right:18px;top:50%;transform:translateY(-50%) rotate(90deg);font-size:1.6rem;color:var(--pri);transition:transform .2s}
+details.agrupa[open]>summary::after{transform:translateY(-50%) rotate(-90deg)}
+details.agrupa .ag-t{font-weight:700;font-size:1.02rem}
+details.agrupa .ag-t b{display:inline-block;min-width:1.6em;padding:0 .45em;margin-left:.3em;border-radius:99px;background:linear-gradient(135deg,var(--pri),var(--g2));color:var(--pri-fg);text-align:center;font-size:.9rem}
+details.agrupa[open]>summary{border-bottom:1px solid var(--line)}
+details.agrupa .grp{padding:6px 18px 16px}
+details.agrupa>summary{align-items:flex-start;text-align:left}

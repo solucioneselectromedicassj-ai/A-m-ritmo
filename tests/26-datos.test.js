@@ -117,9 +117,9 @@ test('recordatorio de respaldo: necesita registros, 3 días de uso y 7 sin respa
   a = await abrir({ ls: con({ settings: { creado: '2026-10-01', ultimoRespaldo: new Date('2026-10-15T12:00:00').getTime() } }) });
   assert.doesNotMatch(await texto(a.page, hoyT), /Hacé un respaldo/, 'con respaldo reciente no se pide');
   a = await abrir({ ls: con({ settings: { creado: '2026-10-01' } }) });
-  assert.match(await texto(a.page, hoyT), /Todavía no exportaste ningún respaldo/);
+  assert.match(await texto(a.page, hoyT), /Todavía no exportaste ninguno/);
   await a.page.click('[data-a=resp-luego]');
   assert.doesNotMatch(await texto(a.page, hoyT), /Hacé un respaldo/);
   a = await abrir({ ls: con({ settings: { creado: '2026-10-01', ultimoRespaldo: new Date('2026-10-05T12:00:00').getTime() } }) });
-  assert.match(await texto(a.page, hoyT), /Hace 14 días que no exportás un respaldo/);
+  assert.match(await texto(a.page, hoyT), /Hace 14 días que no exportás uno/);
 });

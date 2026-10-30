@@ -9,6 +9,7 @@ const plan = (extra = {}) => base(Object.assign({
   sesiones: [{ id: 's1', n: 'Mañana', dias: [1, 3, 5], hora: '08:00', ej: ['e1', 'e2', 'e3'] }, { id: 's2', n: 'Tarde', dias: [2], hora: '', ej: ['e4'] }]
 }, extra));
 const abrirR = page => page.evaluate(() => document.querySelectorAll('details.compacto').forEach(d => { d.open = true; }));   // los ejercicios ya resueltos están plegados
+const abrirG = page => page.evaluate(() => document.querySelectorAll('details.agrupa').forEach(d => { d.open = true; }));   // en Hoy los pendientes están en un bloque plegado
 const llenar = async (page, vals) => { for (const [k, v] of Object.entries(vals)) { const el = page.locator(`#modal [name="${k}"]`); if (v === null) await el.fill(''); else await el.fill(String(v)); } };
 
 test('ejercicio: hoy se ven solo las rutinas del día; las otras quedan aparte', async ({ abrir }) => {
@@ -266,9 +267,10 @@ test('Hoy: la rutina se habilita a su hora, cada ejercicio desaparece al marcarl
   const { page } = await abrir({ ls: plan() });
   const filas = () => page.$$eval('#view .fila-ej b', xs => xs.map(x => x.textContent));
   assert.deepStrictEqual(await filas(), ['Giros', 'Puente', 'Plancha']);
-  await page.click('[data-a=ej-ok][data-id=e1]');
+  assert.strictEqual(await page.locator('#view details.agrupa[open]').count(), 0, 'los pendientes arrancan plegados en un solo bloque');
+  await abrirG(page); await page.click('[data-a=ej-ok][data-id=e1]');
   assert.deepStrictEqual(await filas(), ['Puente', 'Plancha'], 'el hecho desaparece y quedan los pendientes');
-  assert.match(await texto(page), /1 de 3 resueltos/);
+  assert.match(await texto(page), /1 de 3 resueltos/, 'el bloque queda abierto mientras lo usás');
   await page.click('[data-a=ej-no][data-id=e2]');
   assert.deepStrictEqual(await filas(), ['Plancha']);
   await page.click('[data-a=ses-todo][data-id=s1]');
@@ -279,6 +281,7 @@ test('Hoy: la rutina se habilita a su hora, cada ejercicio desaparece al marcarl
 
 test('Hoy: antes de la hora la rutina queda en espera y se puede empezar antes', async ({ abrir }) => {
   const { page } = await abrir({ ls: plan(), fecha: '2026-10-19T06:00:00' });
+  assert.match(await texto(page), /Ejercicios pendientes 3 Mañana \(08:00\) · algunos se habilitan más tarde/); await abrirG(page);
   assert.match(await texto(page), /Se habilita a las 08:00\. 3 ejercicios para hoy\./); assert.strictEqual(await page.locator('#view .fila-ej').count(), 0);
   await page.click('[data-a=hoy-abrir][data-id=s1]'); assert.strictEqual(await page.locator('#view .fila-ej').count(), 3);
 });
@@ -302,7 +305,7 @@ test('pendientes de la semana: "Repartir" suma una recuperación opcional por d�
   let S = await estado(page);
   assert.strictEqual(S.recup.e1, 3, 'tope de 3 aunque se hayan perdido 5 días'); assert.ok(Object.keys(S.cerrados).length >= 5);
   assert.doesNotMatch(await texto(page), /Te quedaron pendientes|Ayer no hiciste/, 'una vez repartido deja de figurar');
-  assert.match(await texto(page), /Recuperás una pendiente: si querés, sumá 6 repeticiones más \(opcional\)/);   // 20 % de 30
+  await abrirG(page); assert.match(await texto(page), /Recuperás una pendiente: si querés, sumá 6 repeticiones más \(opcional\)/);   // 20 % de 30
   // hacer la dosis normal (30) no descuenta; hacer dosis + extra (36) descuenta UNA y solo una vez por día
   await page.evaluate(() => { window.SA.state().days['2026-10-19'] = { ej: { e1: 30 } }; });
   await ir(page, 'ejercicio'); await abrirR(page);
@@ -324,10 +327,19 @@ test('pendientes de la semana: "Dejarlo así" las cierra sin sumar nada', async 
 test('pendientes de la semana: lo que no estaba programado ese día o es anterior al inicio no cuenta', async ({ abrir }) => {
   const ls = plan({ settings: { creado: '2026-10-19' } });   // empezó hoy: nada de la semana pasada es "pendiente"
   const { page } = await abrir({ ls });
-  assert.doesNotMatch(await texto(page), /pendientes|Ayer no hiciste/);
+  assert.doesNotMatch(await texto(page), /Te quedaron pendientes|Ayer no hiciste/);
 });
 
 test('Hoy: si algún ejercicio quedó "para otro día", la rutina resuelta lo aclara en una línea', async ({ abrir }) => {
   const { page } = await abrir({ ls: plan({ days: { '2026-10-19': { ej: { e1: 30, e2: 2 }, omitEj: { e3: true } } } }) });
   assert.match(await texto(page), /Resuelta: 2 hechos y 1 para otro día\./);
+});
+
+test('Hoy: el agua queda justo debajo del resumen, antes de los ejercicios; y los ejercicios van en un solo bloque con el total', async ({ abrir }) => {
+  const { page } = await abrir({ ls: plan({ modulos: { ejercicio: true, agua: true }, modo: 'registro' }) });
+  const orden = await page.$$eval('#view > *', xs => xs.map(x => (x.classList.contains('agrupa') ? 'GRUPO' : x.querySelector('h3') ? x.querySelector('h3').textContent : x.tagName)));
+  assert.ok(orden.indexOf('Agua') > -1 && orden.indexOf('Agua') < orden.indexOf('GRUPO'), 'Agua antes que los ejercicios: ' + orden.join('|'));
+  assert.strictEqual(await page.locator('#view details.agrupa').count(), 1);
+  assert.match(await texto(page), /Ejercicios pendientes 3/);
+  const altura = await page.evaluate(() => document.querySelector('details.agrupa').getBoundingClientRect().height); assert.ok(altura < 120, 'plegado ocupa poco lugar (' + altura + ' px)');
 });

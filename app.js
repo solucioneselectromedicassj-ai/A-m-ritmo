@@ -371,7 +371,7 @@
   function tarjetaRespaldo() {
     const s = S.settings;
     if (!hayRegistros() || diasDeUso() < 3 || diasSinRespaldo() < 7 || s.respaldoPospuesto === hoy()) return '';
-    return `<div class="card warn"><b>💾 Hacé un respaldo de tus datos</b><p>${s.ultimoRespaldo ? 'Hace ' + diasSinRespaldo() + ' días que no exportás un respaldo.' : 'Todavía no exportaste ningún respaldo.'} Tus datos viven solo en este teléfono: si lo perdés o desinstalás la app, se pierden.</p><div class="row"><button class="pri grow" data-a="export">Exportar respaldo</button><button class="ghost grow" data-a="resp-luego">Más tarde</button></div></div>`;
+    return `<div class="card warn"><b>💾 Hacé un respaldo</b><p>${s.ultimoRespaldo ? 'Hace ' + diasSinRespaldo() + ' días que no exportás uno.' : 'Todavía no exportaste ninguno.'} Tus datos viven solo en este teléfono.</p><div class="row"><button class="pri grow" data-a="export">Exportar respaldo</button><button class="ghost grow" data-a="resp-luego">Más tarde</button></div></div>`;
   }
   function tarjetasAvisos() {
     let h = '';
@@ -391,16 +391,40 @@
   const firmaHabil = () => (mod('ejercicio') ? sesionesDelDia(new Date()).map(se => (rutinaHabilitada(se) ? '1' : '0')).join('') : '');
   function tarjetasRutinasHoy() {
     if (!mod('ejercicio')) return '';
-    const k = hoy(), omitE = peek(k).omitEj || {};
-    return sesionesDelDia(new Date()).filter(se => ejDeSesion(se).length).map(se => {
-      const ejs = ejDeSesion(se), hechos = ejs.filter(e => progEj(e, k) >= metaEj(e)), saltados = ejs.filter(e => !hechos.includes(e) && omitE[e.id]), pend = ejs.filter(e => !hechos.includes(e) && !saltados.includes(e)), id = esc(se.id);
+    const k = hoy(), omitE = peek(k).omitEj || {}, grupos = [], notas = [];
+    sesionesDelDia(new Date()).filter(se => ejDeSesion(se).length).forEach(se => {
+      const ejs = ejDeSesion(se), hechos = ejs.filter(e => progEj(e, k) >= metaEj(e)), saltados = ejs.filter(e => !hechos.includes(e) && omitE[e.id]), pend = ejs.filter(e => !hechos.includes(e) && !saltados.includes(e));
       const titulo = `${esc(se.n)}${se.hora ? ' · ' + esc(se.hora) : ''}`;
-      if (!pend.length) return saltados.length ? `<div class="card"><b>${titulo}</b><p class="muted">Resuelta: ${hechos.length} hecho${hechos.length === 1 ? '' : 's'} y ${saltados.length} para otro día.</p></div>` : '';   // completa: el resumen ya lo dice (✅), sin tarjeta repetida
-      if (!rutinaHabilitada(se)) return `<div class="card"><h3>🏋️ ${titulo}</h3><p class="muted">Se habilita a las ${esc(se.hora)}. ${pend.length} ejercicio${pend.length === 1 ? '' : 's'} para hoy.</p><button class="ghost mini" data-a="hoy-abrir" data-id="${id}">Empezar antes</button></div>`;
-      return `<div class="card"><h3>🏋️ ${titulo}</h3><p class="muted">${hechos.length + saltados.length} de ${ejs.length} resueltos. Tocá ✅ en cada uno cuando lo hagas.</p>
-        ${pend.map(e => `<div class="fila-ej"><div class="grow"><b>${esc(e.n)}</b><small>${esc(dosisEj(e))}</small>${avisoRecup(e)}</div><button class="pri mini" data-a="ej-ok" data-id="${esc(e.id)}" aria-label="Lo hice: ${esc(e.n)}">✅ Lo hice</button><button class="ghost mini" data-a="ej-no" data-id="${esc(e.id)}">Hoy no</button></div><details class="mas"><summary>Cómo hacerlo / contar</summary>${ejCard(e, k)}</details>`).join('')}
+      if (!pend.length) { if (saltados.length) notas.push(`<div class="card"><b>${titulo}</b><p class="muted">Resuelta: ${hechos.length} hecho${hechos.length === 1 ? '' : 's'} y ${saltados.length} para otro día.</p></div>`); return; }   // completa: el resumen ya lo dice (✅)
+      grupos.push({ se, ejs, hechos, saltados, pend, titulo, habil: rutinaHabilitada(se) });
+    });
+    if (!grupos.length) return notas.join('');
+    const total = grupos.reduce((n, g) => n + g.pend.length, 0), listas = grupos.filter(g => g.habil).reduce((n, g) => n + g.pend.length, 0);
+    const resumen = grupos.map(g => `${esc(g.se.n)}${g.habil ? '' : ' (' + esc(g.se.hora) + ')'}`).join(' · ');
+    const cuerpo = grupos.map(g => {
+      const id = esc(g.se.id);
+      if (!g.habil) return `<div class="grp"><h3 class="sub">🏋️ ${g.titulo}</h3><p class="muted">Se habilita a las ${esc(g.se.hora)}. ${g.pend.length} ejercicio${g.pend.length === 1 ? '' : 's'} para hoy.</p><button class="ghost mini" data-a="hoy-abrir" data-id="${id}">Empezar antes</button></div>`;
+      return `<div class="grp"><h3 class="sub">🏋️ ${g.titulo} · ${g.hechos.length + g.saltados.length} de ${g.ejs.length} resueltos</h3>
+        ${g.pend.map(e => `<div class="fila-ej"><div class="grow"><b>${esc(e.n)}</b><small>${esc(dosisEj(e))}</small>${avisoRecup(e)}</div><button class="pri mini" data-a="ej-ok" data-id="${esc(e.id)}" aria-label="Lo hice: ${esc(e.n)}">✅ Lo hice</button><button class="ghost mini" data-a="ej-no" data-id="${esc(e.id)}">Hoy no</button></div><details class="mas"><summary>Cómo hacerlo / contar</summary>${ejCard(e, k)}</details>`).join('')}
         <div class="row" style="margin-top:10px"><button class="pri grow" data-a="ses-todo" data-id="${id}">✅ Lo hice todo</button><button class="ghost grow" data-a="ses-no" data-id="${id}">❌ No pude hoy</button></div></div>`;
     }).join('');
+    return `<details class="card agrupa" data-eid="hoy-pend" ${abiertosEj.has('hoy-pend') ? 'open' : ''}><summary><span class="ag-t">🏋️ Ejercicios pendientes <b>${total}</b></span><small>${resumen}${listas < total ? ' · algunos se habilitan más tarde' : ''}</small></summary>${cuerpo}</details>${notas.join('')}`;
+  }
+  /* Al tocar una notificación, la app abre con un aviso rápido y su acción (sin pasar por el resto de la pantalla); después sigue como siempre. */
+  function avisoRapido(titulo, texto, acciones) {
+    $('#modal').innerHTML = `<div class="modal-box rapido" role="dialog" aria-modal="true" aria-label="${esc(titulo)}"><h3>${esc(titulo)}</h3>${texto ? `<p>${esc(texto)}</p>` : ''}
+      <div class="row" style="margin-top:12px">${acciones.map(([t, a, extra, cls]) => `<button class="${cls || 'ghost'} grow" data-a="${a}" ${extra || ''}>${esc(t)}</button>`).join('')}</div></div>`;
+    $('#modal').hidden = false; modalCb = null;
+  }
+  function alTocarAviso(id) {
+    if (!S.listo || wiz) return;
+    const despues = ['Después', 'modal-cancel'];
+    if (id >= 1000 && id < 2000) { if (!mod('agua')) return; const p = pendientesAgua(); return avisoRapido('💧 Hora de tomar agua', p > 1 ? `Te quedaron ${p} vasos por tomar (vaso de ${S.settings.vaso} ml).` : `Un vaso de ${S.settings.vaso} ml.`, [['Tomé un vaso', 'agua+', '', 'pri'], despues]); }
+    if (id >= 2000 && id < 3000) { const m = S.medidas[id - 2000]; if (!m) return; return avisoRapido(`${m.n}: hora de medir`, 'Anotá el valor cuando lo tengas.', [['Anotar ahora', 'ir-medida', `data-id="${esc(m.id)}"`, 'pri'], despues]); }
+    if (id >= 3000 && id < 3600) { const se = S.sesiones[Math.floor((id - 3000) / 10)]; if (!se) return; abiertosEj.add('hoy-pend'); return avisoRapido(`🏋️ ${se.n}`, 'Es hora de tu rutina.', [['Ver mis ejercicios', 'tab', 'data-t="hoy"', 'pri'], despues]); }
+    if ((id >= 3600 && id < 3700) || id === 3900) { abiertosEj.add('hoy-pend'); return avisoRapido(id === 3900 ? '🏋️ Tenías ejercicios pendientes' : '🏋️ ¿Hiciste tu rutina de hoy?', 'Marcá lo que hiciste. Lo que no, lo podés dejar para otro día.', [['Ver mis ejercicios', 'tab', 'data-t="hoy"', 'pri'], despues]); }
+    if (id === 3700) return avisoRapido('👣 ¿Cómo van tus pasos de hoy?', `Llevás ${peek().pasos || 0}${S.settings.metaPasos ? ' de ' + S.settings.metaPasos : ''} pasos.`, [['Ver mis pasos', 'ir-pasos', '', 'pri'], despues]);
+    if (id >= 4000 && id < 5000) { const r = S.recordatorios[Math.floor((id - 4000) / 10)]; if (!r) return; return avisoRapido(`🔔 ${r.txt}`, '', [['Listo', 'modal-cancel', '', 'pri']]); }
   }
   // Estado del contador de pasos a la vista (Android): activo, o qué falta para que cuente.
   function estadoPasos() {
@@ -419,11 +443,11 @@
     if (mod('actividad')) filas.push(meter('Actividad de la semana', minSemana(claveSemana(now)), s.aeroMeta, 'min'));
     if (mod('comida')) filas.push(meter('Alimentación de hoy', S.comida.items.filter(it => marcasDia()[it.id]).length, S.comida.items.length));
     return `<h2>${DIAS[now.getDay()]} ${now.getDate()} de ${MESES[now.getMonth()]}</h2>${tarjetaAviso()}${tarjetaRespaldo()}${tarjetasAvisos()}
-    ${tarjetaPendientes(false)}
     <div class="card"><h3>Resumen del día</h3>${filas.join('') || '<p class="muted">Todavía no activaste ningún módulo. Hacelo en Ajustes.</p>'}</div>
-    ${tarjetasRutinasHoy()}
     ${tarjetaAguaPend()}
     ${mod('agua') ? `<div class="card"><h3>Agua</h3><div class="row"><button class="ghost grow" data-a="agua-">− ${s.vaso} ml</button><button class="pri grow" data-a="agua+">+ vaso (${s.vaso} ml)</button></div></div>` : ''}
+    ${tarjetasRutinasHoy()}
+    ${tarjetaPendientes(false)}
     ${mod('ejercicio') ? `<div class="card"><button class="ghost" style="width:100%" data-a="tab" data-t="ejercicio">Ver todo mi ejercicio y mi evolución</button></div>` : ''}
     ${AVISO_PIE}`;
   }
@@ -1141,12 +1165,15 @@
   const nombreEj = id => (ejPorId(id) || {}).n || '';
   document.addEventListener('click', e => {
     if (e.target.id === 'modal') return cerrarModal();
-    const dt = e.target.closest('details.compacto'); // el ejercicio plegado que estás usando queda abierto aunque se vuelva a dibujar la pantalla
+    const dt = e.target.closest('details[data-eid]'); // lo plegado que estás usando (un ejercicio, el bloque de pendientes) queda abierto aunque se vuelva a dibujar la pantalla
     if (dt && dt.dataset.eid) { if (e.target.closest('summary')) { if (dt.open) abiertosEj.delete(dt.dataset.eid); else abiertosEj.add(dt.dataset.eid); } else abiertosEj.add(dt.dataset.eid); }
     const b = e.target.closest('[data-a]'); if (!b) return;
     const a = b.dataset.a, id = b.dataset.id, k = b.dataset.k;
+    if (b.closest('#modal .rapido')) cerrarModal();
     switch (a) {
       case 'tab': go(b.dataset.t); break;
+      case 'ir-medida': subM = id; go('medidas'); break;
+      case 'ir-pasos': subH = 'pasos'; go('habitos'); break;
       case 'rec-repartir': { const f = faltasSemana(); f.forEach(({ k, e }) => { S.recup[e.id] = Math.min(MAX_RECUP, (S.recup[e.id] || 0) + 1); S.cerrados[k + '|' + e.id] = true; }); changed(); toast(f.length ? 'Listo: te los voy sumando de a uno en tus próximas rutinas' : 'No había nada pendiente'); break; }
       case 'rec-dejar': faltasSemana().forEach(({ k, e }) => { S.cerrados[k + '|' + e.id] = true; }); changed(); break;
       case 'aviso-ok': S.settings.avisoAceptado = Date.now(); changed(); toast('Gracias. Lo podés releer en Ajustes.'); break;
@@ -1420,6 +1447,7 @@
   }
   // Android dibuja la app detrás de la barra de estado: se lee su alto (MainActivity lo expone) para que el título no quede tapado.
   function leerInsets() { try { if (window.AndroidInsets) document.documentElement.style.setProperty('--inset-top', Number(window.AndroidInsets.top()) + 'px'); } catch (e) { /* sin datos: queda el mínimo del CSS */ } }
+  if (NATIVE) { const NL = plug('LocalNotifications'); if (NL && NL.addListener) { try { NL.addListener('localNotificationActionPerformed', ev => { try { alTocarAviso(ev && ev.notification && ev.notification.id); } catch (e) { /* nada */ } }); } catch (e) { /* nada */ } } }
   if (NATIVE) { document.body.classList.add('nativo'); leerInsets(); [300, 1200, 3000].forEach(t => setTimeout(leerInsets, t)); window.addEventListener('resize', leerInsets); }
   aplicarColor();
   iniciarBienvenida();
@@ -1429,5 +1457,5 @@
   else if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { });
 
   // Ganchos para pruebas automáticas.
-  window.SA = { fusionarSalud, importarSalud, leerInsets, state: () => S, render, go, chart, informeCuerpo, detectStep, step };
+  window.SA = { alTocarAviso, fusionarSalud, importarSalud, leerInsets, state: () => S, render, go, chart, informeCuerpo, detectStep, step };
 })();
