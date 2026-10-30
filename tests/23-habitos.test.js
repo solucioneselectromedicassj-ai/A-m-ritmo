@@ -78,23 +78,18 @@ test('actividad: validaciones y tipo libre escapado', async ({ abrir }) => {
   assert.strictEqual(await page.evaluate(() => window.__xss), undefined);
 });
 
-test('alimentación: checklist vacío con sugerencias; agregar, marcar y cumplimiento de la semana', async ({ abrir }) => {
-  const { page, errores } = await abrir({ ls: con({ comida: true }), fecha: MIERCOLES });
-  await irHab(page); assert.match(await texto(page), /Tu checklist está vacío/);
+test('alimentación: elegir qué anotar (varias sugerencias a la vez), sumar lo propio y marcar lo que comió hoy', async ({ abrir }) => {
+  const { page, errores } = await abrir({ ls: con({ comida: true }) });
+  await irHab(page); assert.match(await texto(page), /¿Qué comés cada día\?/);
   await page.click('[data-a=com-sug][data-v="0"]'); await page.click('[data-a=com-sug][data-v="1"]');
-  assert.match(await texto(page), /Tu checklist está vacío/, 'elegir una no cierra la pantalla: se pueden elegir varias');
+  assert.match(await texto(page), /¿Qué comés cada día\?/, 'elegir una no cierra la pantalla: se pueden elegir varias');
   await page.click('[data-a=com-sug][data-v="1"]');   // la desmarca
   await page.click('[data-a=com-sug-ok]');
-  await page.click('[data-a=com-sugs]'); assert.doesNotMatch(await page.innerText('#modal'), /Verduras en el almuerzo/, 'ya agregada: no se ofrece de nuevo');
-  await page.check('#modal input[value="Sin frituras"]'); await page.click('#modal button[type=submit]');
-  const S = await estado(page); assert.deepStrictEqual(S.comida.items.map(i => i.n), ['Verduras en el almuerzo', 'Sin frituras']);
-  assert.ok(!S.comida.items.some(i => /fruto|chía|semilla/i.test(i.n)), 'ninguna sugerencia incluye frutos secos, chía ni semillas');
-  // lunes 2/2, martes 0/2, miércoles 1/2 → 3 de 6 = 50 %
-  const [a, b] = S.comida.items.map(i => i.id);
-  await page.evaluate(([a, b]) => { const s = window.SA.state(); s.days['2026-10-19'] = { comida: { [a]: true, [b]: true } }; s.days['2026-10-20'] = {}; }, [a, b]);
-  await page.click(`[data-a=com-t][data-id="${a}"]`);
-  assert.match(await texto(page), /50 %/); assert.match(await texto(page), /3 de 6 casilleros marcados en 3 días/);
-  await page.click(`[data-a=com-t][data-id="${a}"]`); assert.match(await texto(page), /33 %/);
+  await page.click('[data-a=com-sugs]'); assert.strictEqual(await page.locator('#modal input[value="Fruta"]').count(), 0, 'ya agregada: no se ofrece de nuevo');
+  await page.check('#modal input[value="Pescado"]'); await page.click('#modal button[type=submit]');
+  const S = await estado(page); assert.deepStrictEqual(S.comida.items.map(i => i.n), ['Fruta', 'Pescado']);
+  await page.click(`[data-a=com-t][data-id="${S.comida.items[0].id}"]`);
+  assert.deepStrictEqual((await estado(page)).days['2026-10-19'].comida, { [S.comida.items[0].id]: true }); assert.match(await texto(page), /Este mes anotaste comidas 1 de 19 días/);
   assert.deepStrictEqual(errores, []);
 });
 
@@ -127,7 +122,7 @@ test('alimentación: editar el checklist en Ajustes; quitar un ítem no borra la
 test('Hoy resume los módulos activados y nada más', async ({ abrir }) => {
   const { page } = await abrir({ ls: con({ pasos: true, comida: true }, { comida: { items: [{ id: 'i1', n: 'A' }, { id: 'i2', n: 'B' }], contadores: [] }, days: { '2026-10-19': { pasos: 1234, comida: { i1: true } } } }) });
   const t = await texto(page);
-  assert.match(t, /Pasos 1234/); assert.match(t, /Alimentación de hoy 1 \/ 2/); assert.doesNotMatch(t, /Agua|Actividad|Ejercicio de hoy/);
+  assert.match(t, /Pasos 1234/); assert.match(t, /Comidas anotadas hoy 1/); assert.doesNotMatch(t, /Agua|Actividad|Ejercicio de hoy/);
 });
 
 

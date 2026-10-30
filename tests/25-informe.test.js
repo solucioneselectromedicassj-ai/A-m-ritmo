@@ -26,7 +26,7 @@ test('informe: incluye mediciones con variación y límites, ejercicio, pasos, a
   assert.match(t, /Promedio de 8000 pasos por día \(3 días con registro\), meta 8000/);
   assert.match(t, /Promedio de 2000 ml por día \(2 días con registro\), meta 2000 ml/);
   assert.match(t, /Promedio semanal: 100 min \(2 semanas con registros\), meta 150 min/);
-  assert.match(t, /Semana del 19\/10 50 %/);
+  assert.match(t, /Alimentación \(qué anotó, por mes\)/); assert.match(t, /octubre \(1 de 19 días con registro\)/); assert.match(t, /Sin frituras 0 0 1/);
   assert.ok(h.includes('Control en diciembre &lt;b&gt;x&lt;/b&gt;'), 'las notas se escapan');
   assert.deepStrictEqual(errores, []);
 });

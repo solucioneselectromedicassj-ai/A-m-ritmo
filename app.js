@@ -80,7 +80,9 @@
   const mezclaEspalda = se => { const l = ejDeSesion(se); return l.some(esEjEspalda) && l.some(e => !esEjEspalda(e)); };
   const agregarEjemplo = (b, se) => { const e = { id: uid('e'), fig: b.fig, n: b.n, tipo: b.tipo, nota: b.nota }; ['meta', 'series', 'reps', 'seg'].forEach(k => { if (b[k] != null) e[k] = b[k]; }); S.ejercicios.push(e); se.ej.push(e.id); };
   const CONTADORES_SUG = ['Fruta (porciones)', 'Pescado', 'Verduras (porciones)', 'Legumbres'];
-  const SUGERENCIAS_COMIDA = ['Verduras en el almuerzo', 'Verduras en la cena', 'Sin frituras', 'Sin gaseosas ni jugos azucarados', 'Fruta del día', 'Legumbres o cereales integrales'];
+  // Ejemplos de lo que se puede anotar cada día (la persona elige qué anotar; no son una indicación).
+  const SUGERENCIAS_COMIDA = ['Fruta', 'Verduras', 'Pescado', 'Carne roja', 'Pollo', 'Huevos', 'Legumbres', 'Pasta, arroz o pan', 'Lácteos', 'Frituras', 'Gaseosas o jugos azucarados', 'Dulces o postres'];
+  const OBJ_OPC = [['', 'Sin objetivo'], ['min:4', 'Al menos 4 días'], ['min:8', 'Al menos 8 días'], ['min:12', 'Al menos 12 días'], ['min:16', 'Al menos 16 días'], ['min:20', 'Al menos 20 días'], ['max:2', 'Como máximo 2 días'], ['max:4', 'Como máximo 4 días'], ['max:8', 'Como máximo 8 días']];
   /* Colores de la app (solo apariencia). Cada uno: [claro: pri, soft, c1], [oscuro: pri, soft, texto sobre pri, c1] */
   const COLORES = {
     coral: ['Coral', null],
@@ -103,13 +105,13 @@
     ['avisos', 'Registro, recordatorios y avisos', 'Además te avisa si una medición queda fuera del rango que vos (o tu profesional) definiste.']
   ];
   const MODULOS = [['ejercicio', '🏋️', 'Ejercicio', 'Rutinas y ejercicios a tu medida'], ['pasos', '👣', 'Pasos', 'Contador y gráfico semanal'], ['agua', '💧', 'Agua', 'Vasos del día y recordatorio'],
-    ['actividad', '🚴', 'Actividad aeróbica', 'Minutos por semana'], ['comida', '🥗', 'Alimentación', 'Checklist diario editable'], ['medidas', '📈', 'Mediciones de salud', 'Presión, peso, análisis y más']];
+    ['actividad', '🚴', 'Actividad aeróbica', 'Minutos por semana'], ['comida', '🥗', 'Alimentación', 'Qué comés cada día y tu resumen del mes'], ['medidas', '📈', 'Mediciones de salud', 'Presión, peso, análisis y más']];
 
   /* ---------- Estado, migración y respaldo ---------- */
   const DEFAULTS = () => ({
     v: VERSION, listo: false, modo: 'registro',
     modulos: { ejercicio: false, pasos: false, agua: false, actividad: false, comida: false, medidas: false },
-    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, anunciosDemo: true, hcUltimo: 0, hcAuto: false, avisoAceptado: 0, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
+    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, recMesComida: true, anunciosDemo: true, hcUltimo: 0, hcAuto: false, avisoAceptado: 0, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
       ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', color: 'coral', informe: { periodo: 90, excluir: {} } },
     ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, recup: {}, cerrados: {}, recordatorios: [], sensor: null
   });
@@ -324,22 +326,32 @@
     const ws = semanasAero(n), i0 = ws.findIndex(w => w.min > 0); if (i0 < 0) return null;
     const u = ws.slice(i0); return { semanas: u.length, prom: Math.round(u.reduce((a, w) => a + w.min, 0) / u.length) };
   }
-  // Cumplimiento del checklist en la semana que empieza en `lunes`, contando solo los días ya transcurridos (un día sin marcar cuenta como no cumplido).
-  function cumplimientoSemana(lunes) {
-    const items = S.comida.items; let dias = 0, ok = 0; const cont = {};
-    S.comida.contadores.forEach(c => { cont[c.id] = 0; });
-    for (let i = 0; i < 7; i++) {
-      const x = sumarDias(lunes, i), k = ymd(x); if (k > hoy()) break;
-      dias++; const m = marcasDia(k); ok += items.filter(it => m[it.id]).length;
-      S.comida.contadores.forEach(c => { cont[c.id] += contDia(c.id, k); });
+  /* Alimentación: la persona anota lo que come cada día; a fin de mes se ve cuántos días comió cada cosa y qué no comió. */
+  const claveMes = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+  function resumenMes(ini) { // ini = primer día del mes
+    const hoyD = new Date(), ultimo = new Date(ini.getFullYear(), ini.getMonth() + 1, 0), actual = claveMes(ini) === claveMes(hoyD), hasta = actual ? hoyD.getDate() : ultimo.getDate(), desde = S.settings.creado || '0000-00-00';
+    let dias = 0, conReg = 0; const items = S.comida.items.map(x => ({ x, dias: 0 })), cont = S.comida.contadores.map(c => ({ c, total: 0 }));
+    for (let d = 1; d <= hasta; d++) {
+      const k = ymd(new Date(ini.getFullYear(), ini.getMonth(), d)); if (k < desde) continue;
+      dias++; const m = marcasDia(k); let alguno = false;
+      items.forEach(r => { if (m[r.x.id]) { r.dias++; alguno = true; } });
+      cont.forEach(r => { const v = contDia(r.c.id, k); if (v > 0) { r.total += v; alguno = true; } });
+      if (alguno) conReg++;
     }
-    const tot = dias * items.length;
-    return { dias, ok, tot, pct: tot ? Math.round(ok / tot * 100) : null, cont };
+    return { ini, actual, dias, conReg, items, cont, nombre: MESES[ini.getMonth()], totalDias: ultimo.getDate() };
+  }
+  const contSemana = (ct, lunes) => { let n = 0; for (let i = 0; i < 7; i++) { const k = ymd(sumarDias(lunes, i)); if (k > hoy()) break; n += contDia(ct.id, k); } return n; };
+  const textoObjetivo = o => (o && o.t === 'min' ? `al menos ${o.d} días` : o && o.t === 'max' ? `como máximo ${o.d} días` : '');
+  function estadoObjetivo(r, o) { // r = fila del resumen; neutro, sin juicios
+    if (!o) return '';
+    const actual = !!(r.res && r.res.actual);
+    if (o.t === 'min') return r.dias >= o.d ? `Objetivo: ${textoObjetivo(o)} — ¡llegaste! (${r.dias})` : `Objetivo: ${textoObjetivo(o)} — ${r.dias}${actual ? ' hasta ahora' : ''}, ${actual ? 'faltan' : 'quedaste a'} ${o.d - r.dias}`;
+    return r.dias <= o.d ? `Objetivo: ${textoObjetivo(o)} — dentro del límite (${r.dias})` : `Objetivo: ${textoObjetivo(o)} — ${r.dias} (${r.dias - o.d} de más)`;
   }
   const limpiar = t => String(t || '').replace(/\s+/g, ' ').trim().slice(0, 80);
 
   /* ---------- Vistas ---------- */
-  let tab = 'hoy', subH = null, subM = null, subEv = 'semana', subEvP = 'semana', subEvA = 'semana', wiz = null;
+  let tab = 'hoy', subCom = 'hoy', subMes = 'actual', subH = null, subM = null, subEv = 'semana', subEvP = 'semana', subEvA = 'semana', wiz = null;
   const selCampo = {};
   const tabsActivas = () => {
     const t = [['hoy', '🏠', 'Hoy']];
@@ -425,8 +437,24 @@
     if (id >= 2000 && id < 3000) { const m = S.medidas[id - 2000]; if (!m) return; return avisoRapido(`${m.n}: hora de medir`, 'Anotá el valor cuando lo tengas.', [['Anotar ahora', 'ir-medida', `data-id="${esc(m.id)}"`, 'pri'], despues]); }
     if (id >= 3000 && id < 3600) { const se = S.sesiones[Math.floor((id - 3000) / 10)]; if (!se) return; abiertosEj.add('hoy-pend'); return avisoRapido(`🏋️ ${se.n}`, 'Es hora de tu rutina.', [['Ver mis ejercicios', 'tab', 'data-t="hoy"', 'pri'], despues]); }
     if ((id >= 3600 && id < 3700) || id === 3900) { abiertosEj.add('hoy-pend'); return avisoRapido(id === 3900 ? '🏋️ Tenías ejercicios pendientes' : '🏋️ ¿Hiciste tu rutina de hoy?', 'Marcá lo que hiciste. Lo que no, lo podés dejar para otro día.', [['Ver mis ejercicios', 'tab', 'data-t="hoy"', 'pri'], despues]); }
+    if (id === 3800) { if (!mod('comida')) return; return avisoRapido('🍽 Cerró el mes', 'Tu resumen de alimentación está listo: mirá qué comiste y elegí tus objetivos del mes que viene.', [['Ver mi resumen', 'mes-ver', '', 'pri'], ['Después', 'modal-cancel']]); }
     if (id === 3700) return avisoRapido('👣 ¿Cómo van tus pasos de hoy?', `Llevás ${peek().pasos || 0}${S.settings.metaPasos ? ' de ' + S.settings.metaPasos : ''} pasos.`, [['Ver mis pasos', 'ir-pasos', '', 'pri'], despues]);
     if (id >= 4000 && id < 5000) { const r = S.recordatorios[Math.floor((id - 4000) / 10)]; if (!r) return; return avisoRapido(`🔔 ${r.txt}`, '', [['Listo', 'modal-cancel', '', 'pri']]); }
+  }
+  // Fin de mes (últimos 3 días) y primeros días del mes siguiente: invita a mirar el resumen de alimentación y a elegir objetivos.
+  function mesParaResumir() {
+    const n = new Date(), ultimo = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate();
+    if (n.getDate() >= ultimo - 2) return new Date(n.getFullYear(), n.getMonth(), 1);
+    if (n.getDate() <= 5) return new Date(n.getFullYear(), n.getMonth() - 1, 1);
+    return null;
+  }
+  function tarjetaMesComida() {
+    if (!mod('comida') || !S.comida.items.length) return '';
+    const ini = mesParaResumir(); if (!ini) return '';
+    const clave = claveMes(ini), s = S.settings; if (s.mesComidaVisto === clave || s.mesComidaPosp === hoy()) return '';
+    const r = resumenMes(ini); if (!r.conReg) return '';
+    const sin = r.items.filter(x => x.dias === 0).map(x => x.x.n).slice(0, 3);
+    return `<div class="card"><b>🍽 ${r.actual ? 'Se acaba ' : 'Cerró '}${esc(r.nombre)}: mirá qué comiste</b><p>${sin.length ? `No anotaste: ${sin.map(esc).join(', ')}. ` : ''}Mirá tu resumen y elegí cómo querés arrancar el mes que viene.</p><div class="row"><button class="pri grow" data-a="mes-ver">Ver mi resumen</button><button class="ghost grow" data-a="mes-luego">Más tarde</button></div></div>`;
   }
   // Estado del contador de pasos a la vista (Android): activo, o qué falta para que cuente.
   function estadoPasos() {
@@ -443,8 +471,8 @@
     if (mod('pasos')) filas.push(meter('Pasos', d.pasos || 0, s.metaPasos) + estadoPasos());
     if (mod('agua')) filas.push(meter('Agua', d.agua || 0, s.metaAgua, 'ml'));
     if (mod('actividad')) filas.push(meter('Actividad de la semana', minSemana(claveSemana(now)), s.aeroMeta, 'min'));
-    if (mod('comida')) filas.push(meter('Alimentación de hoy', S.comida.items.filter(it => marcasDia()[it.id]).length, S.comida.items.length));
-    return `<h2>${DIAS[now.getDay()]} ${now.getDate()} de ${MESES[now.getMonth()]}</h2>${tarjetaAviso()}${tarjetaRespaldo()}${tarjetasAvisos()}
+    if (mod('comida')) filas.push(meter('Comidas anotadas hoy', S.comida.items.filter(it => marcasDia()[it.id]).length));
+    return `<h2>${DIAS[now.getDay()]} ${now.getDate()} de ${MESES[now.getMonth()]}</h2>${tarjetaAviso()}${tarjetaRespaldo()}${tarjetasAvisos()}${tarjetaMesComida()}
     <div class="card"><h3>Resumen del día</h3>${filas.join('') || '<p class="muted">Todavía no activaste ningún módulo. Hacelo en Ajustes.</p>'}</div>
     ${tarjetaAguaPend()}
     ${mod('agua') ? `<div class="card"><h3>Agua</h3><div class="row"><button class="ghost grow" data-a="agua-">− ${s.vaso} ml</button><button class="pri grow" data-a="agua+">+ vaso (${s.vaso} ml)</button></div></div>` : ''}
@@ -657,18 +685,38 @@
       <ul class="list">${recientes.map(r => `<li><span>${fmtFecha(r.fecha)} · <b>${r.min} min</b>${r.tipo ? ' · ' + esc(r.tipo) : ''}</span>${delBtn('aero', r.i)}</li>`).join('')}</ul></div>${anuncio('evolucion-actividad')}`;
   }
   let sugSel = new Set();
-  function subComida() {
-    const items = S.comida.items, m = marcasDia(), c = cumplimientoSemana(lunesDe(new Date())), hechos = items.filter(it => m[it.id]).length;
-    if (!items.length && !S.comida.contadores.length) return `<div class="card"><h3>Tu checklist está vacío</h3><p>Armalo con lo que quieras seguir cada día. Tocá una sugerencia o agregá la tuya.</p>${SUGERENCIAS_COMIDA.map((t, i) => `<button class="chk-it ${sugSel.has(i) ? 'on' : ''}" data-a="com-sug" data-v="${i}" aria-pressed="${sugSel.has(i) ? 'true' : 'false'}"><span>${sugSel.has(i) ? '✅' : '⬜'}</span>${esc(t)}</button>`).join('')}<div class="row"><button class="pri grow" data-a="com-sug-ok" ${sugSel.size ? '' : 'disabled'}>Agregar ${sugSel.size ? 'las ' + sugSel.size + ' elegidas' : 'las elegidas'}</button><button class="ghost grow" data-a="com-add">Agregar ítem propio</button></div><h3 class="sub">O contá por día (se suma en la semana)</h3><div class="row">${CONTADORES_SUG.map(n => `<button class="ghost mini" data-a="ct-sug" data-v="${esc(n)}">➕ ${esc(n)}</button>`).join('')}</div><small>Tocá todas las que quieras. Son ejemplos: elegí lo que te indicó tu profesional.</small></div>`;
-    return `<div class="card"><h3>Hoy</h3>${items.map(it => `<button class="chk-it ${m[it.id] ? 'on' : ''}" data-a="com-t" data-id="${esc(it.id)}" aria-pressed="${m[it.id] ? 'true' : 'false'}"><span>${m[it.id] ? '✅' : '⬜'}</span>${esc(it.n)}</button>`).join('') || '<p class="muted">Sin ítems diarios.</p>'}
-      <small>Marcá cada ítem si lo cumpliste hoy (${hechos} de ${items.length}).</small></div>
-    ${S.comida.contadores.map(ct => `<div class="card"><h3>${esc(ct.n)}</h3><div class="stepper"><button data-a="cont-" data-id="${esc(ct.id)}" aria-label="Una menos">−</button><span>${contDia(ct.id)}</span><button data-a="cont+" data-id="${esc(ct.id)}" aria-label="Una más">+</button></div>${meter('Esta semana (veces)', c.cont[ct.id] || 0, ct.meta)}</div>`).join('')}
-    ${items.length ? `<div class="card"><h3>Cumplimiento de la semana</h3>${c.pct === null ? '<p class="muted">Sin datos todavía.</p>' : `<div class="big">${c.pct} %</div><div class="bar"><i style="width:${c.pct}%"></i></div><small>${c.ok} de ${c.tot} casilleros marcados en ${c.dias} día${c.dias === 1 ? '' : 's'} (lunes a hoy).</small>`}</div>` : ''}
-    <div class="card"><div class="row"><button class="ghost grow" data-a="com-add">Agregar ítem</button><button class="ghost grow" data-a="com-sugs">Sugerencias</button></div>
-      ${CONTADORES_SUG.filter(n => !S.comida.contadores.some(x => x.n === n)).length ? `<h3 class="sub">Contar por día (se suma en la semana)</h3><div class="row">${CONTADORES_SUG.filter(n => !S.comida.contadores.some(x => x.n === n)).map(n => `<button class="ghost mini" data-a="ct-sug" data-v="${esc(n)}">➕ ${esc(n)}</button>`).join('')}<button class="ghost mini" data-a="ct-nuevo">➕ Otro</button></div>` : '<div class="row" style="margin-top:8px"><button class="ghost mini" data-a="ct-nuevo">➕ Otro contador</button></div>'}
-      <div class="row" style="margin-top:8px"><button class="ghost grow" data-a="rec-nuevo">🔔 Que me recuerde algo</button></div>
-      <small>También podés renombrar o quitar ítems en Ajustes → Alimentación.</small></div>`;
+  function filaMes(r, ant, resObj) {
+    const x = r.x, pct = r.res.dias ? Math.round(r.dias / r.res.dias * 100) : 0, d = ant ? r.dias - ant.dias : null;
+    return `<div class="mes-fila"><div class="row sp"><b>${esc(x.n)}</b><span>${r.dias} día${r.dias === 1 ? '' : 's'}${d === null || d === 0 ? '' : ` <small class="delta ${d > 0 ? 'sube' : 'baja'}">${d > 0 ? '▲ +' : '▼ −'}${Math.abs(d)} vs mes anterior</small>`}</span></div><div class="bar"><i style="width:${pct}%"></i></div>${resObj ? `<small>${esc(resObj)}</small>` : ''}</div>`;
   }
+  function vistaMes() {
+    const hoyD = new Date(), pasado = subMes === 'pasado', ini = new Date(hoyD.getFullYear(), hoyD.getMonth() - (pasado ? 1 : 0), 1), res = resumenMes(ini), ant = resumenMes(new Date(ini.getFullYear(), ini.getMonth() - 1, 1));
+    const filas = res.items.map(r => Object.assign(r, { res })).sort((a, b) => b.dias - a.dias);
+    const sin = filas.filter(r => r.dias === 0).map(r => r.x.n), proximo = MESES[new Date(ini.getFullYear(), ini.getMonth() + 1, 1).getMonth()];
+    return `${segBtns([['actual', 'Este mes'], ['pasado', 'Mes pasado']], pasado ? 'pasado' : 'actual', 'sub-mes')}
+    <div class="card"><h3>${res.nombre[0].toUpperCase() + res.nombre.slice(1)} ${ini.getFullYear()}${res.actual ? ' (hasta hoy)' : ''}</h3>
+      ${res.dias ? `<p>Anotaste comidas <b>${res.conReg} de ${res.dias}</b> días.</p>` : '<p class="muted">Este mes todavía no tiene días para mostrar.</p>'}
+      ${filas.length ? filas.map(r => filaMes(r, ant.dias ? ant.items.find(a => a.x.id === r.x.id) : null, estadoObjetivo(r, r.x.obj))).join('') : '<p class="muted">Todavía no elegiste qué anotar. Hacelo en la pestaña "Hoy".</p>'}
+      ${res.cont.length ? `<h3 class="sub">Cantidades del mes</h3>${res.cont.map(r => `<div class="row sp"><span>${esc(r.c.n)}</span><b>${r.total}</b></div>`).join('')}` : ''}</div>
+    ${res.conReg && sin.length ? `<div class="card warn"><b>${res.actual ? 'Hasta ahora' : 'En ' + res.nombre} no anotaste:</b><p>${sin.map(esc).join(', ')}.</p><small>Es solo un registro de lo que cargaste: ${pasado ? 'pensalo para el mes que viene.' : 'todavía estás a tiempo si querés sumarlo.'}</small></div>` : ''}
+    ${filas.length ? `<div class="card"><h3>Objetivos de ${esc(pasado ? proximo : res.nombre)}</h3><p class="muted">${pasado ? 'Entrá al mes nuevo con ganas: elegí cuántos días querés comer (o limitar) cada cosa.' : 'Si querés, fijá cuántos días querés comer (o limitar) cada cosa.'} Son tuyos y no son una indicación médica.</p><button class="pri" style="width:100%" data-a="com-obj">🎯 Elegir mis objetivos</button></div>` : ''}`;
+  }
+  function subComida() {
+    const items = S.comida.items, m = marcasDia(), hoyD = new Date(), res = resumenMes(new Date(hoyD.getFullYear(), hoyD.getMonth(), 1)), lunes = lunesDe(hoyD);
+    const subs = [['hoy', 'Hoy'], ['mes', 'Mi mes']];
+    if (!items.length && !S.comida.contadores.length) return `<div class="card"><h3>¿Qué comés cada día?</h3><p>Elegí qué querés anotar (después sumás lo tuyo). Cada día tocás lo que comiste, y a fin de mes ves el resumen.</p>${SUGERENCIAS_COMIDA.map((t, i) => `<button class="chk-it ${sugSel.has(i) ? 'on' : ''}" data-a="com-sug" data-v="${i}" aria-pressed="${sugSel.has(i) ? 'true' : 'false'}"><span>${sugSel.has(i) ? '✅' : '⬜'}</span>${esc(t)}</button>`).join('')}<div class="row"><button class="pri grow" data-a="com-sug-ok" ${sugSel.size ? '' : 'disabled'}>Agregar ${sugSel.size ? 'las ' + sugSel.size + ' elegidas' : 'las elegidas'}</button><button class="ghost grow" data-a="com-add">Agregar la mía</button></div><h3 class="sub">O contá cantidades por día (porciones)</h3><div class="row">${CONTADORES_SUG.map(n => `<button class="ghost mini" data-a="ct-sug" data-v="${esc(n)}">➕ ${esc(n)}</button>`).join('')}</div><small>Son ejemplos: anotá lo que quieras seguir, con tu profesional si corresponde.</small></div>`;
+    const sel = segBtns(subs, subCom === 'mes' ? 'mes' : 'hoy', 'sub-com');
+    if (subCom === 'mes') return sel + vistaMes();
+    return `${sel}<div class="card"><h3>¿Qué comiste hoy?</h3>${items.map(it => `<button class="chk-it ${m[it.id] ? 'on' : ''}" data-a="com-t" data-id="${esc(it.id)}" aria-pressed="${m[it.id] ? 'true' : 'false'}"><span>${m[it.id] ? '✅' : '⬜'}</span>${esc(it.n)}</button>`).join('') || '<p class="muted">Todavía no elegiste qué anotar.</p>'}
+      <small>Tocá lo que comiste hoy. A fin de mes ves cuántos días comiste cada cosa y qué no comiste.</small></div>
+    ${S.comida.contadores.map(ct => `<div class="card"><h3>${esc(ct.n)}</h3><div class="stepper"><button data-a="cont-" data-id="${esc(ct.id)}" aria-label="Una menos">−</button><span>${contDia(ct.id)}</span><button data-a="cont+" data-id="${esc(ct.id)}" aria-label="Una más">+</button></div>${meter('Esta semana (veces)', contSemana(ct, lunes), ct.meta)}</div>`).join('')}
+    <div class="card"><div class="row sp"><span>Este mes anotaste comidas <b>${res.conReg} de ${res.dias}</b> días.</span><button class="ghost mini" data-a="com-mes">Ver mi mes</button></div></div>
+    <div class="card"><div class="row"><button class="ghost grow" data-a="com-add">Agregar la mía</button><button class="ghost grow" data-a="com-sugs">Sugerencias</button></div>
+      ${CONTADORES_SUG.filter(n => !S.comida.contadores.some(x => x.n === n)).length ? `<h3 class="sub">Cantidades por día (porciones)</h3><div class="row">${CONTADORES_SUG.filter(n => !S.comida.contadores.some(x => x.n === n)).map(n => `<button class="ghost mini" data-a="ct-sug" data-v="${esc(n)}">➕ ${esc(n)}</button>`).join('')}<button class="ghost mini" data-a="ct-nuevo">➕ Otro</button></div>` : '<div class="row" style="margin-top:8px"><button class="ghost mini" data-a="ct-nuevo">➕ Otro contador</button></div>'}
+      <div class="row" style="margin-top:8px"><button class="ghost grow" data-a="rec-nuevo">🔔 Que me recuerde algo</button></div>
+      <small>También podés renombrar o quitar lo que anotás en Ajustes → Alimentación.</small></div>`;
+  }
+
 
   /* ---------- Ajustes ---------- */
   const horaOk = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(x);
@@ -684,6 +732,7 @@
         <div class="grid2">${campoNum('recMin', 'Cada cuántos minutos', s.recMin, '', 'required min="15"')}<div></div></div>
         <div class="grid2"><div><label for="s_aguaDesde">Desde</label><input id="s_aguaDesde" name="aguaDesde" type="time" value="${esc(s.aguaDesde)}" required></div><div><label for="s_aguaHasta">Hasta</label><input id="s_aguaHasta" name="aguaHasta" type="time" value="${esc(s.aguaHasta)}" required></div></div>` : ''}
       ${mod('pasos') ? campoNum('metaPasos', 'Meta de pasos por día', s.metaPasos, 'Ej: 8000') + `<label class="chk"><input type="checkbox" name="recPasos" ${s.recPasos === true ? 'checked' : ''}>Avisarme a la noche cómo voy con los pasos (opcional: se cuentan solos)${conRecordatorios() ? '' : ' (activá un modo con recordatorios)'}</label><label for="s_recPasosHora">Hora del aviso de pasos</label><input id="s_recPasosHora" name="recPasosHora" type="time" value="${esc(s.recPasosHora || '20:00')}" required><small>No suena si ya llegaste a tu meta.</small>` : ''}
+      ${mod('comida') ? `<label class="chk"><input type="checkbox" name="recMesComida" ${s.recMesComida !== false ? 'checked' : ''}>Avisarme a fin de mes con el resumen de alimentación${conRecordatorios() ? '' : ' (activá un modo con recordatorios)'}</label>` : ''}
       ${mod('actividad') ? campoNum('aeroMeta', 'Meta de actividad aeróbica (min por semana)', s.aeroMeta, 'Ej: 150') : ''}
       ${mod('ejercicio') ? campoNum('descansoSeg', 'Descanso entre series (segundos)', s.descansoSeg, '', 'required min="5"') : ''}
       ${mod('ejercicio') ? `<label class="chk"><input type="checkbox" name="seguirOn" ${s.seguirOn !== false ? 'checked' : ''}>Preguntarme a la noche si hice mi rutina${conRecordatorios() ? '' : ' (activá un modo con recordatorios)'}</label><label for="s_seguirHora">Hora de la pregunta</label><input id="s_seguirHora" name="seguirHora" type="time" value="${esc(s.seguirHora || '21:00')}" required><small>No suena si ya marcaste todo. Lo que quede pendiente lo podés repartir en la semana.</small>` : ''}
@@ -699,10 +748,10 @@
     const meds = !mod('medidas') ? '' : `<div class="card"><h3>Mis mediciones</h3><small>Los límites, los avisos y cada cuánto repetir los definís en "Configurar".</small>
       <ul class="list">${S.medidas.map(m => `<li><span>${CATALOGO[m.tipo] ? CATALOGO[m.tipo].ic : '📏'} ${esc(m.n)}</span><span class="row"><button class="ghost mini" data-a="med-conf" data-id="${esc(m.id)}">Configurar</button><button class="dang mini" data-a="med-del" data-id="${esc(m.id)}">Quitar</button></span></li>`).join('') || '<li class="muted">Todavía ninguna</li>'}</ul>
       <div class="row"><button class="pri grow" data-a="med-nueva">Agregar medición</button></div></div>`;
-    const com = !mod('comida') ? '' : `<div class="card"><h3>Alimentación</h3><small>Tu checklist diario y tus contadores semanales.</small>
-      <ul class="list">${S.comida.items.map(it => `<li><span>${esc(it.n)}</span><span class="row"><button class="ghost mini" data-a="ci-ren" data-id="${esc(it.id)}">Renombrar</button><button class="dang mini" data-a="ci-del" data-id="${esc(it.id)}">Quitar</button></span></li>`).join('') || '<li class="muted">Sin ítems diarios</li>'}</ul>
+    const com = !mod('comida') ? '' : `<div class="card"><h3>Alimentación</h3><small>Lo que anotás cada día y tus contadores. Los objetivos del mes se fijan desde Hábitos → Alimentación → Mi mes.</small>
+      <ul class="list">${S.comida.items.map(it => `<li><span>${esc(it.n)}</span><span class="row"><button class="ghost mini" data-a="ci-ren" data-id="${esc(it.id)}">Renombrar</button><button class="dang mini" data-a="ci-del" data-id="${esc(it.id)}">Quitar</button></span></li>`).join('') || '<li class="muted">Todavía nada</li>'}</ul>
       <ul class="list">${S.comida.contadores.map(c => `<li><span>${esc(c.n)}<small>meta semanal: ${c.meta || 'sin meta'}</small></span><span class="row"><button class="ghost mini" data-a="ct-edit" data-id="${esc(c.id)}">Editar</button><button class="dang mini" data-a="ct-del" data-id="${esc(c.id)}">Quitar</button></span></li>`).join('')}</ul>
-      <div class="row"><button class="pri grow" data-a="com-add">Agregar ítem</button><button class="ghost grow" data-a="ct-nuevo">Contador semanal</button></div>
+      <div class="row"><button class="pri grow" data-a="com-add">Agregar la mía</button><button class="ghost grow" data-a="ct-nuevo">Contador</button></div>
       <div class="row" style="margin-top:8px"><button class="ghost grow" data-a="com-sugs">Ver sugerencias</button></div></div>`;
     const inf = s.informe, secciones = [['ejercicio', 'Ejercicio'], ['pasos', 'Pasos'], ['agua', 'Agua'], ['actividad', 'Actividad aeróbica'], ['comida', 'Alimentación']].filter(([k]) => mod(k)).concat(mod('medidas') ? S.medidas.map(m => ['medida:' + m.id, m.n]) : []);
     const informe = `<div class="card"><h3>Informe para mi médico</h3><small>Elegí qué incluir y de qué período. Lo armás cuando lo necesites y lo compartís o imprimís.</small>
@@ -1016,7 +1065,9 @@
     if (mod('agua') && inc('agua')) { const v = dias.map(k => peek(k).agua).filter(x => x > 0); h += `<h3>Agua</h3><p>${v.length ? `Promedio de ${prom(v)} ml por día (${v.length} días con registro)${s.metaAgua ? ', meta ' + s.metaAgua + ' ml' : ''}.` : 'Sin registros.'}</p>`; }
     if (mod('actividad') && inc('actividad')) { const a = promedioAero(); h += `<h3>Actividad aeróbica</h3><p>${a ? `Promedio semanal: <b>${a.prom} min</b> (${a.semanas} semanas con registros)${s.aeroMeta ? ', meta ' + s.aeroMeta + ' min' : ''}.` : 'Sin registros.'}</p>${tabla(['Semana del', 'Minutos'], semanasAero(8).reverse().map(w => [fmtFecha(w.k), w.min]))}`; }
     if (mod('comida') && inc('comida')) {
-      h += `<h3>Alimentación (checklist)</h3><p>Ítems: ${S.comida.items.map(it => esc(it.n)).join('; ') || 'ninguno'}.</p>${tabla(['Semana', 'Cumplimiento'].concat(S.comida.contadores.map(c => c.n)), [3, 2, 1, 0].map(n => { const l = sumarDias(lunesDe(now), -7 * n), c = cumplimientoSemana(l); return [`Semana del ${fmtDia(l)}`, c.pct === null ? '-' : c.pct + ' %'].concat(S.comida.contadores.map(ct => String(c.cont[ct.id] || 0) + (ct.meta ? ' de ' + ct.meta : ''))); }))}`;
+      const meses = [2, 1, 0].map(n => resumenMes(new Date(now.getFullYear(), now.getMonth() - n, 1)));
+      const filas = S.comida.items.map((it, i) => [it.n + (it.obj ? ` (objetivo: ${textoObjetivo(it.obj)})` : '')].concat(meses.map(m => String(m.items[i].dias))));
+      h += `<h3>Alimentación (qué anotó, por mes)</h3><p>Días del mes en que anotó haber comido cada cosa.</p>${tabla(['Alimento'].concat(meses.map(m => `${m.nombre} (${m.conReg} de ${m.dias} días con registro)`)), filas.concat(S.comida.contadores.map((c, i) => [c.n + ' (total)'].concat(meses.map(m => String(m.cont[i].total))))))}`;
     }
     return h + '<p class="peque">Este informe resume registros hechos por el usuario; no reemplaza estudios ni indicaciones médicas.</p>';
   }
@@ -1146,6 +1197,14 @@
       setupReminders(); return undefined;
     }, 'En el celular (app Android) suena aunque la app esté cerrada.');
   }
+  function modalObjetivosComida() {
+    if (!S.comida.items.length) return toast('Primero elegí qué querés anotar.');
+    const campos = S.comida.items.map(x => ({ k: 'o_' + x.id, t: 'select', l: x.n, v: x.obj ? `${x.obj.t}:${x.obj.d}` : '', opts: OBJ_OPC }));
+    abrirModal('Objetivos del mes', campos, v => {
+      S.comida.items.forEach(x => { const val = v['o_' + x.id]; const m = /^(min|max):(\d+)$/.exec(val || ''); if (m) x.obj = { t: m[1], d: Number(m[2]) }; else delete x.obj; });
+      return undefined;
+    }, 'Se repiten cada mes hasta que los cambies. Son tuyos: no son una indicación médica.');
+  }
   function modalContador(c) {
     abrirModal(c ? 'Editar contador semanal' : 'Nuevo contador semanal', [
       { k: 'n', t: 'text', l: 'Qué contás', v: c ? c.n : '', req: true, ph: 'Ej: Pescado, Legumbres, Fruta' },
@@ -1160,7 +1219,7 @@
   function modalSugerencias() {
     const libres = SUGERENCIAS_COMIDA.filter(t => !S.comida.items.some(i => i.n === t));
     if (!libres.length) return toast('Ya agregaste todas las sugerencias');
-    abrirModal('Sugerencias para tu checklist', [{ k: 'sel', t: 'checks', l: 'Elegí las que quieras', v: [], opts: libres.map(t => [t, t]) }], v => { v.sel.forEach(t => S.comida.items.push({ id: uid('i'), n: limpiar(t) })); return undefined; }, 'Son ejemplos: elegí lo que te indicó tu profesional.');
+    abrirModal('Sugerencias de comidas', [{ k: 'sel', t: 'checks', l: 'Elegí las que quieras', v: [], opts: libres.map(t => [t, t]) }], v => { v.sel.forEach(t => S.comida.items.push({ id: uid('i'), n: limpiar(t) })); return undefined; }, 'Son ejemplos: anotá lo que quieras seguir, con tu profesional si corresponde.');
   }
 
   /* ---------- Acciones ---------- */
@@ -1179,6 +1238,12 @@
       case 'ir-pasos': subH = 'pasos'; go('habitos'); break;
       case 'rec-repartir': { const f = faltasSemana(); f.forEach(({ k, e }) => { S.recup[e.id] = Math.min(MAX_RECUP, (S.recup[e.id] || 0) + 1); S.cerrados[k + '|' + e.id] = true; }); changed(); toast(f.length ? 'Listo: te los voy sumando de a uno en tus próximas rutinas' : 'No había nada pendiente'); break; }
       case 'rec-dejar': faltasSemana().forEach(({ k, e }) => { S.cerrados[k + '|' + e.id] = true; }); changed(); break;
+      case 'sub-com': subCom = b.dataset.v; render(); break;
+      case 'sub-mes': subMes = b.dataset.v; render(); break;
+      case 'com-mes': subCom = 'mes'; subMes = 'actual'; render(); break;
+      case 'mes-ver': { const ini = mesParaResumir() || new Date(); S.settings.mesComidaVisto = claveMes(ini); subH = 'comida'; subCom = 'mes'; subMes = claveMes(ini) === claveMes(new Date()) ? 'actual' : 'pasado'; changed(); go('habitos'); break; }
+      case 'mes-luego': S.settings.mesComidaPosp = hoy(); changed(); break;
+      case 'com-obj': modalObjetivosComida(); break;
       case 'aviso-ok': S.settings.avisoAceptado = Date.now(); changed(); toast('Gracias. Lo podés releer en Ajustes.'); break;
       case 'hoy-abrir': abiertasHoy.add(id); render(); break;
       case 'sub-evp': subEvP = b.dataset.v; render(); break;
@@ -1229,10 +1294,10 @@
       case 'com-t': { const d = day(); d.comida = d.comida || {}; if (d.comida[id]) delete d.comida[id]; else d.comida[id] = true; changed(); break; }
       case 'com-sug': { const i = Number(b.dataset.v); if (sugSel.has(i)) sugSel.delete(i); else sugSel.add(i); render(); break; }
       case 'com-sug-ok': { [...sugSel].sort((a, b2) => a - b2).forEach(i => { const t = SUGERENCIAS_COMIDA[i]; if (t) S.comida.items.push({ id: uid('i'), n: limpiar(t) }); }); sugSel = new Set(); changed(); toast('Agregadas. Podés sumar más con "Agregar ítem"'); break; }
-      case 'com-add': modalTexto('Nuevo ítem del checklist', 'Qué querés cumplir cada día', '', n => { S.comida.items.push({ id: uid('i'), n: limpiar(n) }); }); break;
+      case 'com-add': modalTexto('Algo para anotar', 'Qué comida o hábito querés anotar cada día', '', n => { S.comida.items.push({ id: uid('i'), n: limpiar(n) }); }); break;
       case 'com-sugs': modalSugerencias(); break;
       case 'ci-ren': { const it = S.comida.items.find(x => x.id === id); if (it) modalTexto('Renombrar ítem', 'Nuevo nombre', it.n, n => { it.n = limpiar(n); }); break; }
-      case 'ci-del': { const i = S.comida.items.findIndex(x => x.id === id); if (i >= 0 && confirm(`¿Quitar "${S.comida.items[i].n}" del checklist? Los días ya marcados no se borran.`)) { S.comida.items.splice(i, 1); changed(); } break; }
+      case 'ci-del': { const i = S.comida.items.findIndex(x => x.id === id); if (i >= 0 && confirm(`¿Quitar "${S.comida.items[i].n}" de lo que anotás? Los días ya marcados no se borran.`)) { S.comida.items.splice(i, 1); changed(); } break; }
       case 'ct-nuevo': modalContador(null); break;
       case 'ct-sug': if (b.dataset.v && !S.comida.contadores.some(x => x.n === b.dataset.v)) { S.comida.contadores.push({ id: uid('c'), n: b.dataset.v, meta: null }); changed(); toast('Agregado. Si querés una meta semanal, tocá Editar en Ajustes → Alimentación.'); } break;
       case 'rec-nuevo': modalRecordatorio(null); break;
@@ -1334,6 +1399,7 @@
       if (f.elements.seguirHora && !horaOk(String(fd.get('seguirHora')))) n.err = 'Revisá la hora de la pregunta de la noche.';
       if (f.elements.aguaDesde && !(horaOk(String(fd.get('aguaDesde'))) && horaOk(String(fd.get('aguaHasta'))))) n.err = 'Revisá las horas del recordatorio de agua.';
       if (n.err) return toast(n.err);
+      if (f.elements.recMesComida) s.recMesComida = fd.get('recMesComida') === 'on';
       if (f.elements.recPasos) { s.recPasos = fd.get('recPasos') === 'on'; s.recPasosHora = String(fd.get('recPasosHora')); }
       if (f.elements.seguirOn) { s.seguirOn = fd.get('seguirOn') === 'on'; s.seguirHora = String(fd.get('seguirHora')); }
       Object.assign(s, n); s.notas = String(fd.get('notas') || '').slice(0, 1000); if (f.elements.recAgua) { s.recAgua = fd.get('recAgua') === 'on'; s.aguaDesde = String(fd.get('aguaDesde')); s.aguaHasta = String(fd.get('aguaHasta')); }
@@ -1387,6 +1453,10 @@
         if (mod('ejercicio')) S.sesiones.slice(0, 80).forEach((se, i) => { if (se.hora && horaOk(se.hora)) (se.dias || []).forEach(d => { const [hh, mm] = se.hora.split(':').map(Number); list.push({ id: 3000 + i * 10 + d, title: `🏋️ ${se.n}`, body: 'Es hora de tu rutina. Después marcá lo que hiciste.', channelId: 'recordatorios', schedule: d === ahora.getDay() && sesionCumplidaHoy(se) ? { at: proximo(hh, mm, 7), repeats: true, every: 'week', allowWhileIdle: true } : { on: { weekday: d + 1, hour: hh, minute: mm }, allowWhileIdle: true } }); }); });
       }
       if (conRecordatorios()) S.recordatorios.slice(0, 50).forEach((r, i) => { if (horaOk(r.hora)) { const [rh, rm] = r.hora.split(':').map(Number); (r.dias || []).forEach(d => list.push({ id: 4000 + i * 10 + d, title: `🔔 ${r.txt}`, body: 'Recordatorio de A Mi Ritmo.', channelId: 'recordatorios', schedule: { on: { weekday: d + 1, hour: rh, minute: rm }, allowWhileIdle: true } })); } });
+      if (conRecordatorios() && mod('comida') && s.recMesComida !== false && S.comida.items.length) {
+        let fin = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0, 20, 0, 0); if (fin <= ahora) fin = new Date(ahora.getFullYear(), ahora.getMonth() + 2, 0, 20, 0, 0);
+        list.push({ id: 3800, title: `🍽 Cerró ${MESES[fin.getMonth()]}: mirá qué comiste`, body: 'Tu resumen de alimentación está listo. Elegí cómo querés arrancar el mes que viene.', channelId: 'recordatorios', schedule: { at: fin, allowWhileIdle: true } });
+      }
       if (conRecordatorios() && mod('pasos') && s.recPasos === true && horaOk(s.recPasosHora)) diario(3700, s.recPasosHora, '👣 ¿Cómo van tus pasos de hoy?', s.metaPasos ? `Tu meta es de ${s.metaPasos} pasos. Abrí A Mi Ritmo para ver cuántos llevás.` : 'Abrí A Mi Ritmo para ver cuántos llevás hoy.', pasosCumplidos());
       if (conRecordatorios() && mod('ejercicio') && s.seguirOn !== false && horaOk(s.seguirHora)) {
         const [sh, sm] = s.seguirHora.split(':').map(Number), resueltas = sesionesDelDia(ahora).filter(se => ejDeSesion(se).length).every(sesionCumplidaHoy);

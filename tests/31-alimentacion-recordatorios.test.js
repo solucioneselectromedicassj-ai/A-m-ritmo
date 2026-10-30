@@ -11,7 +11,7 @@ const nativo = { LocalNotifications: { getPending: '() => ({notifications:[]})' 
 test('alimentación: se puede agregar fruta (y otros) como contador por día con suma semanal', async ({ abrir }) => {
   const { page, errores } = await abrir({ ls: conCom() });
   await irCom(page);
-  assert.match(await texto(page), /Contar por día/); await page.click('[data-a=ct-sug][data-v="Fruta (porciones)"]');
+  assert.match(await texto(page), /Cantidades por día/); await page.click('[data-a=ct-sug][data-v="Fruta (porciones)"]');
   let S = await estado(page); assert.deepStrictEqual(S.comida.contadores.map(c => [c.n, c.meta]), [['Fruta (porciones)', null]]);
   assert.strictEqual(await page.locator('[data-a=ct-sug][data-v="Fruta (porciones)"]').count(), 0, 'ya agregada: no se ofrece de nuevo');
   await page.click('[data-a="cont+"]'); await page.click('[data-a="cont+"]');
@@ -21,7 +21,7 @@ test('alimentación: se puede agregar fruta (y otros) como contador por día con
 
 test('alimentación vacía: también ofrece los contadores sugeridos', async ({ abrir }) => {
   const { page } = await abrir({ ls: base({ modulos: { comida: true } }) });
-  await irCom(page); assert.match(await texto(page), /Tu checklist está vacío/); await page.click('[data-a=ct-sug][data-v="Fruta (porciones)"]');
+  await irCom(page); assert.match(await texto(page), /¿Qué comés cada día\?/); await page.click('[data-a=ct-sug][data-v="Fruta (porciones)"]');
   assert.strictEqual((await estado(page)).comida.contadores.length, 1);
 });
 
