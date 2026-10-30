@@ -109,7 +109,7 @@
   const DEFAULTS = () => ({
     v: VERSION, listo: false, modo: 'registro',
     modulos: { ejercicio: false, pasos: false, agua: false, actividad: false, comida: false, medidas: false },
-    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, hcUltimo: 0, hcAuto: false, avisoAceptado: 0, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
+    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, anunciosDemo: true, hcUltimo: 0, hcAuto: false, avisoAceptado: 0, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
       ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', color: 'coral', informe: { periodo: 90, excluir: {} } },
     ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, recup: {}, cerrados: {}, recordatorios: [], sensor: null
   });
@@ -366,6 +366,8 @@
   const changed = () => { consumirRecup(); save(); render(); if (NATIVE) reprogramarSiCambio(); };
   const AVISO_TXT = 'A Mi Ritmo es una ayuda personal para llevar tus hábitos. No reemplaza las indicaciones de tu médico ni de otros profesionales de la salud, y no diagnostica ni indica tratamientos. Las metas y los límites los definís vos, idealmente con tu profesional. Si te sentís mal, buscá atención médica.';
   const tarjetaAviso = () => (S.settings.avisoAceptado ? '' : `<div class="card warn"><b>Antes de empezar</b><p>${esc(AVISO_TXT)}</p><div class="row"><button class="pri grow" data-a="aviso-ok">Entendí y acepto</button></div></div>`);
+  // Espacio publicitario DE EJEMPLO (todavía sin ningún servicio de anuncios): solo en pantallas tranquilas (Ajustes y Evolución), nunca en Hoy, mediciones, ejercicios en curso ni cerca de avisos médicos.
+  const anuncio = lugar => (S.settings.anunciosDemo === false ? '' : `<aside class="anuncio" data-lugar="${lugar}" aria-label="Espacio publicitario de ejemplo"><small>Publicidad · ejemplo</small><div class="anuncio-caja"><b>Tu anuncio acá</b><span>Banner 320 × 50</span></div></aside>`);
   const AVISO_PIE = '<p class="foot">Ayuda personal para llevar tus hábitos: no reemplaza las indicaciones de tu médico ni de otros profesionales de la salud. Si te sentís mal, buscá atención médica.</p>';
 
   function tarjetaRespaldo() {
@@ -534,7 +536,7 @@
     ${tarjetaPendientes(true)}
     ${hoyS.length ? hoyS.map(s => sesionBloque(s, now)).join('') : '<div class="card"><b>Hoy no tenés rutina programada.</b></div>'}
     ${otras.length ? `<details class="card"><summary>Otras rutinas (${otras.length})</summary>${otras.map(s => `<div class="row sp"><p class="muted">${esc(s.n)} · ${esc(fmtDiasSes(s.dias || []))}${s.hora ? ' · ' + esc(s.hora) : ''}</p><button class="ghost mini" data-a="ses-edit" data-id="${esc(s.id)}">📅 Días y horario</button></div>${ejDeSesion(s).map(e => ejCard(e)).join('')}`).join('')}</details>` : ''}
-    ${tarjetaEvolucion()}
+    ${tarjetaEvolucion()}${anuncio('evolucion-ejercicio')}
     <div class="card"><button class="ghost" style="width:100%" data-a="tab" data-t="ajustes">Editar mi plan de ejercicio</button></div>${AVISO_PIE}`;
   }
 
@@ -631,7 +633,7 @@
     <div class="card"><h3>Cargar pasos a mano</h3><small>Útil para copiar el total de otra app o de tu pulsera.</small>
       <label for="pasosInput">Cantidad</label><input id="pasosInput" type="number" inputmode="numeric" min="0" max="100000" placeholder="Ej: 3500">
       <div class="row" style="margin-top:8px"><button class="ghost grow" data-a="pasos-add">Sumar</button><button class="ghost grow" data-a="pasos-set">Fijar total del día</button></div></div>
-    ${tarjetaEvolucionPasos()}`;
+    ${tarjetaEvolucionPasos()}${anuncio('evolucion-pasos')}`;
   }
   function subAgua() {
     const d = peek(), s = S.settings;
@@ -652,7 +654,7 @@
       <small>Los pasos del día no reemplazan estos minutos. Consultá con tu profesional qué intensidad es adecuada para vos.</small></div>
     ${tarjetaEvolucionAero()}
     <div class="card"><h3>Mis últimos registros</h3>${prom ? `<small>Promedio semanal: <b>${prom.prom} min</b> (${prom.semanas} semana${prom.semanas === 1 ? '' : 's'} con datos).</small>` : '<small>Todavía no hay registros.</small>'}
-      <ul class="list">${recientes.map(r => `<li><span>${fmtFecha(r.fecha)} · <b>${r.min} min</b>${r.tipo ? ' · ' + esc(r.tipo) : ''}</span>${delBtn('aero', r.i)}</li>`).join('')}</ul></div>`;
+      <ul class="list">${recientes.map(r => `<li><span>${fmtFecha(r.fecha)} · <b>${r.min} min</b>${r.tipo ? ' · ' + esc(r.tipo) : ''}</span>${delBtn('aero', r.i)}</li>`).join('')}</ul></div>${anuncio('evolucion-actividad')}`;
   }
   let sugSel = new Set();
   function subComida() {
@@ -715,7 +717,8 @@
       <input id="fileIn" type="file" accept="application/json,.json" hidden></div>
     <div class="card ${s.avisoAceptado ? '' : 'warn'}"><h3>Aviso importante</h3><p>${esc(AVISO_TXT)}</p>${s.avisoAceptado ? `<small>Lo aceptaste el ${fmtFecha(ymd(new Date(s.avisoAceptado)))}.</small>` : '<div class="row"><button class="pri grow" data-a="aviso-ok">Entendí y acepto</button></div>'}</div>
     <div class="card"><h3>Acerca de A Mi Ritmo</h3><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. A Mi Ritmo no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
-      <div class="row"><button class="ghost grow" data-a="wiz-rehacer">Rehacer el asistente inicial</button></div></div>`;
+      <div class="row"><button class="ghost grow" data-a="wiz-rehacer">Rehacer el asistente inicial</button></div></div>
+    <div class="card"><h3>Anuncios</h3><label class="chk"><input type="checkbox" data-a="anuncios-demo" ${s.anunciosDemo !== false ? 'checked' : ''}>Mostrar el espacio de anuncios de ejemplo</label><small>Es solo para ver cómo quedaría: todavía no hay publicidad real.</small></div>${anuncio('ajustes')}`;
     const recs = `<div class="card"><h3>Mis recordatorios</h3><small>Lo que quieras que te recuerde: una fruta, la medicación, estirar… Funcionan con los modos que incluyen recordatorios.</small>
       <ul class="list">${S.recordatorios.map(r => `<li><span>🔔 ${esc(r.txt)}<small>${esc(fmtDiasSes(r.dias || []))} · ${esc(r.hora)}</small></span><span class="row"><button class="ghost mini" data-a="rec-edit" data-id="${esc(r.id)}">Editar</button><button class="dang mini" data-a="rec-del" data-id="${esc(r.id)}">Quitar</button></span></li>`).join('') || '<li class="muted">Todavía ninguno</li>'}</ul>
       <div class="row"><button class="pri grow" data-a="rec-nuevo">Agregar recordatorio</button></div></div>`;
@@ -1268,6 +1271,7 @@
   document.addEventListener('change', e => {
     const t = e.target;
     if (t.id === 'fileIn' && t.files[0]) importar(t.files[0]);
+    if (t.dataset && t.dataset.a === 'anuncios-demo') { S.settings.anunciosDemo = t.checked; changed(); }
     if (t.dataset && t.dataset.a === 'salud-auto') { S.settings.hcAuto = t.checked; save(); if (t.checked) importarSalud(true); }
     if (t.dataset && t.dataset.a === 'mod-t') { S.modulos[t.dataset.k] = t.checked; save(); setupReminders(); render(); if (t.dataset.k === 'pasos' && t.checked) iniciarPasos(); }
   });
