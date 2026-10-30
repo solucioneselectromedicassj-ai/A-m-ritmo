@@ -265,13 +265,13 @@ details.agrupa[open]>summary{border-bottom:1px solid var(--line)}
 details.agrupa .grp{padding:6px 18px 16px}
 details.agrupa>summary{align-items:flex-start;text-align:left}
 
-/* Espacio publicitario de ejemplo: discreto, rotulado y sin botones */
-.anuncio{margin:14px 0 4px;text-align:center}
-.anuncio>small{display:block;font-size:.7rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
-.anuncio-caja{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-height:56px;max-width:340px;margin:0 auto;border:1px dashed color-mix(in srgb,var(--muted) 55%,transparent);border-radius:14px;background:color-mix(in srgb,var(--card) 70%,transparent);color:var(--muted)}
-.anuncio-caja b{font-size:.92rem;color:var(--fg);opacity:.75}.anuncio-caja span{font-size:.78rem}
-.card .seg button{padding:8px 10px;font-size:.92rem}
-
+/* Espacio publicitario de ejemplo: franja fija sobre la navegación, rotulada y sin botones */
+#anuncio{position:fixed;left:14px;right:14px;bottom:calc(90px + env(safe-area-inset-bottom));z-index:9;max-width:620px;margin:0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-height:50px;padding:6px 12px;text-align:center;border:1px dashed color-mix(in srgb,var(--muted) 60%,transparent);border-radius:16px;background:color-mix(in srgb,var(--card) 88%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:var(--muted)}
+#anuncio[hidden]{display:none}
+#anuncio span{font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+#anuncio small{font-size:.7rem;letter-spacing:.04em;color:var(--muted);opacity:.85}
+body.con-anuncio{padding-bottom:calc(166px + env(safe-area-inset-bottom))}
+body.con-anuncio #timer{bottom:calc(150px + env(safe-area-inset-bottom))}
 /* Íconos SVG (reemplazan a los emojis) */
 .ico{width:1.2em;height:1.2em;vertical-align:-.22em;flex:none}
 button .ico{margin-right:.1em}
