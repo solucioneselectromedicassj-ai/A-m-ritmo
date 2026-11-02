@@ -111,7 +111,7 @@
   const DEFAULTS = () => ({
     v: VERSION, listo: false, modo: 'registro',
     modulos: { ejercicio: false, pasos: false, agua: false, actividad: false, comida: false, medidas: false },
-    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, recMesComida: true, anunciosDemo: true, hcUltimo: 0, hcAuto: false, avisoAceptado: 0, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
+    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, figAnim: true, recMesComida: true, anunciosDemo: true, hcUltimo: 0, hcAuto: false, avisoAceptado: 0, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
       ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', color: 'coral', informe: { periodo: 90, excluir: {} } },
     ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, recup: {}, cerrados: {}, recordatorios: [], sensor: null
   });
@@ -546,7 +546,7 @@
   }
   function ejCard(e, f = hoy()) {
     const c = progEj(e, f), meta = metaEj(e), mol = S.molestias[e.id], id = esc(e.id), no = !!(peek(f).omitEj || {})[e.id];
-    const fig = e.fig && window.FIG ? window.FIG(e.fig) : '';
+    const fig = e.fig && window.FIG ? window.FIG(e.fig, S.settings.figAnim !== false) : '';
     let ctl;
     if (e.tipo === 'reps') {
       ctl = `<div class="stepper"><button data-a="ej-" data-id="${id}" aria-label="Una menos">−</button><button class="cnt" data-a="ej-set" data-id="${id}" aria-label="Escribir cuántas hiciste">${c}/${meta}</button><button data-a="ej+" data-id="${id}" aria-label="Una más">+</button><button class="ghost mini" data-a="ej+5" data-id="${id}">+5</button></div><small>Tocá el número para escribir cuántas hiciste. Podés pasarte de la meta.</small>`;
@@ -803,6 +803,7 @@
     <div class="card ${s.avisoAceptado ? '' : 'warn'}"><h3>Aviso importante</h3><p>${esc(AVISO_TXT)}</p>${s.avisoAceptado ? `<small>Lo aceptaste el ${fmtFecha(ymd(new Date(s.avisoAceptado)))}.</small>` : '<div class="row"><button class="pri grow" data-a="aviso-ok">Entendí y acepto</button></div>'}</div>
     <div class="card"><h3>Acerca de A Mi Ritmo</h3><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. A Mi Ritmo no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
       <div class="row"><button class="ghost grow" data-a="wiz-rehacer">Rehacer el asistente inicial</button></div></div>
+    ${mod('ejercicio') ? `<div class="card"><h3>Figuras de los ejercicios</h3><label class="chk"><input type="checkbox" data-a="fig-anim" ${s.figAnim !== false ? 'checked' : ''}>Mostrar las figuras con un pequeño movimiento</label><small>Si preferís verlas quietas, destildá. También podés tocar una figura para pausarla.</small></div>` : ''}
     <div class="card"><h3>Anuncios</h3><label class="chk"><input type="checkbox" data-a="anuncios-demo" ${s.anunciosDemo !== false ? 'checked' : ''}>Mostrar el espacio de anuncios de ejemplo</label><small>Es solo para ver cómo quedaría: todavía no hay publicidad real.</small></div>`;
     const recs = `<div class="card"><h3>Mis recordatorios</h3><small>Lo que quieras que te recuerde: una fruta, la medicación, estirar… Funcionan con los modos que incluyen recordatorios.</small>
       <ul class="list">${S.recordatorios.map(r => `<li><span>${ICONO('campana')} ${esc(r.txt)}<small>${esc(fmtDiasSes(r.dias || []))} · ${esc(r.hora)}</small></span><span class="row"><button class="ghost mini" data-a="rec-edit" data-id="${esc(r.id)}">Editar</button><button class="dang mini" data-a="rec-del" data-id="${esc(r.id)}">Quitar</button></span></li>`).join('') || '<li class="muted">Todavía ninguno</li>'}</ul>
@@ -1280,6 +1281,7 @@
       case 'mes-ver': { const ini = mesParaResumir() || new Date(); S.settings.mesComidaVisto = claveMes(ini); subH = 'comida'; subCom = 'mes'; subMes = claveMes(ini) === claveMes(new Date()) ? 'actual' : 'pasado'; changed(); go('habitos'); break; }
       case 'mes-luego': S.settings.mesComidaPosp = hoy(); changed(); break;
       case 'com-obj': modalObjetivosComida(); break;
+      case 'fig-pausa': { const fg = b.closest('.fig'); if (fg) fg.classList.toggle('pausada'); break; }
       case 'aviso-ok': S.settings.avisoAceptado = Date.now(); changed(); toast('Gracias. Lo podés releer en Ajustes.'); break;
       case 'hoy-abrir': abiertasHoy.add(id); render(); break;
       case 'sub-evp': subEvP = b.dataset.v; render(); break;
@@ -1372,6 +1374,7 @@
   document.addEventListener('change', e => {
     const t = e.target;
     if (t.id === 'fileIn' && t.files[0]) importar(t.files[0]);
+    if (t.dataset && t.dataset.a === 'fig-anim') { S.settings.figAnim = t.checked; changed(); }
     if (t.dataset && t.dataset.a === 'anuncios-demo') { S.settings.anunciosDemo = t.checked; changed(); }
     if (t.dataset && t.dataset.a === 'salud-auto') { S.settings.hcAuto = t.checked; save(); if (t.checked) importarSalud(true); }
     if (t.dataset && t.dataset.a === 'mod-t') { S.modulos[t.dataset.k] = t.checked; save(); setupReminders(); render(); if (t.dataset.k === 'pasos' && t.checked) iniciarPasos(); }

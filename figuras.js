@@ -113,9 +113,17 @@
     }
   };
 
-  window.FIG = function (id) {
+  // FIG(id, animada): con animada=true muestra UNA figura que alterna suavemente entre sus poses (toque = pausar/seguir);
+  // si no, las poses una al lado de la otra (versión quieta).
+  window.FIG = function (id, animada) {
     const f = POSES[id]; if (!f) return '';
-    const n = f.p.length, w = f.w, gap = 24, W = n * w + (n - 1) * gap;
+    const n = f.p.length, w = f.w;
+    if (animada && n > 1) {
+      const poses = f.p.map((p, i) => `<g class="pose p${i}">${p}</g>`).join('');
+      const caps = f.cap.map((c, i) => `<span class="c${i}">${c}</span>`).join('');
+      return `<div class="fig anim"><button type="button" class="fig-btn" data-a="fig-pausa" aria-label="Pausar o seguir la animación de ${f.cap.join(' y ')}"><svg viewBox="0 0 ${w} 100" role="img" aria-label="${f.cap.join(' → ')}">${poses}</svg></button><div class="figcap">${caps}</div></div>`;
+    }
+    const gap = 24, W = n * w + (n - 1) * gap;
     let g = '';
     f.p.forEach((p, i) => {
       g += `<g transform="translate(${i * (w + gap)} 0)">${p}</g>`;
@@ -124,4 +132,5 @@
     const caps = f.cap.map(c => `<span>${c}</span>`).join('');
     return `<div class="fig"><svg viewBox="0 0 ${W} 100" role="img" aria-label="${f.cap.join(' → ')}">${g}</svg><div class="figcap">${caps}</div></div>`;
   };
+
 })();

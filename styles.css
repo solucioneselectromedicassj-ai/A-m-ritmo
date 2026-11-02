@@ -284,3 +284,19 @@ button .ico{margin-right:.1em}
 .warnTxt .ico{color:var(--warn)}
 .mes-fila{margin:10px 0 4px}.mes-fila .row.sp{align-items:flex-start}.mes-fila .row.sp>span{text-align:right}
 .delta{font-weight:600}.delta.sube{color:var(--ok)}.delta.baja{color:var(--warn)}
+
+/* Figuras animadas: una sola figura que alterna entre sus dos poses (sin imágenes ni librerías) */
+.fig.anim .fig-btn{display:block;width:100%;max-width:230px;min-height:44px;margin:0 auto;padding:4px;border:none;background:transparent;border-radius:16px;cursor:pointer}
+.fig.anim svg{width:100%;max-width:none;height:auto;max-height:150px}
+.fig.anim .pose{opacity:0}
+.fig.anim .p0{animation:pose-a 2.8s ease-in-out infinite}
+.fig.anim .p1{animation:pose-b 2.8s ease-in-out infinite}
+.fig.anim .figcap span{opacity:.45;font-weight:400}
+.fig.anim .c0{animation:cap-a 2.8s ease-in-out infinite}
+.fig.anim .c1{animation:cap-b 2.8s ease-in-out infinite}
+.fig.anim.pausada .pose,.fig.anim.pausada .figcap span{animation-play-state:paused}
+@keyframes pose-a{0%,30%{opacity:1}50%,80%{opacity:0}100%{opacity:1}}
+@keyframes pose-b{0%,30%{opacity:0}50%,80%{opacity:1}100%{opacity:0}}
+@keyframes cap-a{0%,30%{opacity:1;font-weight:600}50%,80%{opacity:.45;font-weight:400}100%{opacity:1;font-weight:600}}
+@keyframes cap-b{0%,30%{opacity:.45;font-weight:400}50%,80%{opacity:1;font-weight:600}100%{opacity:.45;font-weight:400}}
+@media (prefers-reduced-motion:reduce){.fig.anim .p0,.fig.anim .p1,.fig.anim .c0,.fig.anim .c1{animation:none!important}.fig.anim .p0{opacity:1}.fig.anim .p1{opacity:0}.fig.anim .c0{opacity:1;font-weight:600}.fig.anim .c1{opacity:.45}}
