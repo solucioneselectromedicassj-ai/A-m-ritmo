@@ -79,7 +79,7 @@ test('importar: reemplaza los datos, deja copia de lo anterior y rechaza archivo
   assert.strictEqual((await estado(page)).registros.m_peso[0].kg, 70);
   assert.strictEqual(await lsGet(page, K + '_antes_importar'), antes);
   await page.setInputFiles('#fileIn', { name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{"hola":1}') }); await page.waitForTimeout(300);
-  assert.match(await page.innerText('#toast'), /no es una copia válida/); assert.strictEqual((await estado(page)).registros.m_peso[0].kg, 70);
+  assert.match(await page.innerText('#modal'), /no reconozco el formato/); assert.strictEqual((await estado(page)).registros.m_peso[0].kg, 70);
 });
 
 test('importar: cancelar la confirmación no cambia nada', async ({ abrir }) => {
@@ -108,7 +108,7 @@ test('borrar todo: si se acepta exportar, no borra nada todavía', async ({ abri
   assert.match(d.suggestedFilename(), /respaldo/); assert.strictEqual((await estado(page)).registros.m_peso.length, 1);
 });
 
-test('recordatorio de respaldo: necesita registros, 3 días de uso y 7 sin respaldo; se pospone por hoy', async ({ abrir }) => {
+test('recordatorio de respaldo: necesita registros, 3 días de uso y 7 sin respaldo; se cierra por hoy', async ({ abrir }) => {
   const hoyT = '#view';
   let a = await abrir({ ls: base({ modulos: TODOS, settings: { creado: '2026-09-01' } }) });
   assert.doesNotMatch(await texto(a.page, hoyT), /Hacé un respaldo/, 'sin registros no se pide');
@@ -122,4 +122,46 @@ test('recordatorio de respaldo: necesita registros, 3 días de uso y 7 sin respa
   assert.doesNotMatch(await texto(a.page, hoyT), /Hacé un respaldo/);
   a = await abrir({ ls: con({ settings: { creado: '2026-10-01', ultimoRespaldo: new Date('2026-10-05T12:00:00').getTime() } }) });
   assert.match(await texto(a.page, hoyT), /Hace 14 días que no exportás uno/);
+});
+
+const SAJSON = () => JSON.stringify({ v: 3, settings: { pesoObj: 88, pesoTol: 1.5 }, days: { '2026-10-15': { pasos: 6500, agua: 2000 } }, peso: [{ fecha: '2026-10-10', kg: 89.4 }], presion: [], colesterol: [], spo2: [], aero: [], comida: { items: [] }, dolor: {}, plan: {} });
+
+test('importar: el selector de archivos no filtra por tipo (un archivo que pasó por WhatsApp puede llegar como otro tipo)', async ({ abrir }) => {
+  const { page } = await abrir({ ls: con() });
+  await ir(page, 'ajustes');
+  assert.strictEqual(await page.getAttribute('#fileIn', 'accept'), null, 'sin accept: se puede elegir cualquier archivo');
+  await page.setInputFiles('#fileIn', { name: 'respaldo (1).json', mimeType: 'application/octet-stream', buffer: Buffer.from(SAJSON()) });
+  await page.waitForTimeout(300); // pide confirmación (se acepta sola) y convierte
+  assert.strictEqual((await estado(page)).registros.m_peso[0].kg, 89.4);
+});
+
+test('importar: "Pegar respaldo" trae lo copiado de Salud Activa (sin pasar por archivos)', async ({ abrir }) => {
+  const { page, errores } = await abrir({ ls: base({ modulos: TODOS }), dialogos: [true] });
+  await ir(page, 'ajustes'); await page.click('[data-a=pegar]');
+  await page.click('#modal button[type=submit]'); assert.ok(await page.isVisible('#modal'), 'vacío: no avanza'); assert.match(await page.innerText('#modalErr'), /Pegá el texto/);
+  await page.fill('#modal textarea', SAJSON()); await page.click('#modal button[type=submit]'); await page.waitForTimeout(400);
+  const S = await estado(page); assert.deepStrictEqual(S.registros.m_peso, [{ fecha: '2026-10-10', kg: 89.4 }]); assert.strictEqual(S.days['2026-10-15'].pasos, 6500);
+  assert.match(await page.innerText('#toast'), /Copia de Salud Activa importada/); assert.deepStrictEqual(errores, []);
+});
+
+test('importar: cada problema se explica (informe en HTML, texto cualquiera, JSON desconocido)', async ({ abrir }) => {
+  const { page } = await abrir({ ls: con(), dialogos: [true] });
+  const prueba = async (txt, rx) => { await ir(page, 'ajustes'); await page.click('[data-a=pegar]'); await page.fill('#modal textarea', txt); await page.click('#modal button[type=submit]'); await page.waitForTimeout(250); assert.match(await page.innerText('#modal'), rx, txt.slice(0, 20)); await page.click('#modal [data-a=modal-cancel]'); };
+  await prueba('<!doctype html><html><body>Informe</body></html>', /es un informe .* no un respaldo/);
+  await prueba('hola, este es mi respaldo', /no tiene el formato de un respaldo/);
+  await prueba('{"algo":1}', /no reconozco el formato/);
+  await prueba('[1,2,3]', /no es un respaldo/);
+  assert.strictEqual((await estado(page)).registros.m_peso[0].kg, 80, 'ningún intento tocó los datos');
+});
+
+test('aviso de respaldo: aparece unos segundos, se va solo y no vuelve el mismo día; en Ajustes queda siempre', async ({ abrir }) => {
+  const ls = con({ settings: { creado: '2026-10-01' } });
+  const a = await abrir({ ls });
+  assert.match(await texto(a.page), /Hacé un respaldo[\s\S]*Todavía no exportaste ninguno/); assert.ok(await a.page.locator('.card.efimera').count() === 1);
+  await a.page.waitForTimeout(10600);
+  assert.doesNotMatch(await texto(a.page), /Hacé un respaldo/, 'desapareció solo');
+  await a.page.reload(); await a.page.waitForFunction(() => window.SA); assert.doesNotMatch(await texto(a.page), /Hacé un respaldo/, 'una vez por día');
+  await ir(a.page, 'ajustes'); assert.match(await texto(a.page), /Último respaldo: nunca/); assert.strictEqual(await a.page.locator('[data-a=export]').count(), 1);
+  const manana = await abrir({ ls: await a.page.evaluate(() => ({ miplanV1: localStorage.getItem('miplanV1') })), fecha: '2026-10-20T12:00:00' });
+  assert.match(await texto(manana.page), /Hacé un respaldo/, 'al otro día vuelve a avisar una vez');
 });

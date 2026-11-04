@@ -300,3 +300,8 @@ button .ico{margin-right:.1em}
 @keyframes cap-a{0%,30%{opacity:1;font-weight:600}50%,80%{opacity:.45;font-weight:400}100%{opacity:1;font-weight:600}}
 @keyframes cap-b{0%,30%{opacity:.45;font-weight:400}50%,80%{opacity:1;font-weight:600}100%{opacity:.45;font-weight:400}}
 @media (prefers-reduced-motion:reduce){.fig.anim .p0,.fig.anim .p1,.fig.anim .c0,.fig.anim .c1{animation:none!important}.fig.anim .p0{opacity:1}.fig.anim .p1{opacity:0}.fig.anim .c0{opacity:1;font-weight:600}.fig.anim .c1{opacity:.45}}
+
+/* aviso de respaldo: aparece y se va solo a los ~10 s */
+.card.efimera{animation:efimera 10s ease forwards}
+@keyframes efimera{0%{opacity:0;transform:translateY(-6px)}4%{opacity:1;transform:none}88%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.card.efimera{animation:none}}

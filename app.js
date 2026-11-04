@@ -111,7 +111,7 @@
   const DEFAULTS = () => ({
     v: VERSION, listo: false, modo: 'registro',
     modulos: { ejercicio: false, pasos: false, agua: false, actividad: false, comida: false, medidas: false },
-    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, figAnim: true, recMesComida: true, anunciosDemo: true, hcUltimo: 0, hcAuto: false, avisoAceptado: 0, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
+    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, respaldoAvisoDia: '', figAnim: true, recMesComida: true, anunciosDemo: true, hcUltimo: 0, hcAuto: false, avisoAceptado: 0, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
       ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', color: 'coral', informe: { periodo: 90, excluir: {} } },
     ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, recup: {}, cerrados: {}, recordatorios: [], sensor: null
   });
@@ -257,6 +257,7 @@
       if (c.t === 'select') return `${l}<select id="${id}" name="${c.k}">${c.opts.map(([v, tx]) => `<option value="${esc(v)}" ${String(c.v) === String(v) ? 'selected' : ''}>${esc(tx)}</option>`).join('')}</select>${ay}`;
       if (c.t === 'dias') return `<label>${esc(c.l)}</label><div class="dias">${ORDEN_DIAS.map(n => `<label><input type="checkbox" name="${c.k}" value="${n}" ${(c.v || []).includes(n) ? 'checked' : ''}>${DIA_L[n]}</label>`).join('')}</div>${ay}`;
       if (c.t === 'check') return `<label class="chk"><input type="checkbox" name="${c.k}" ${c.v ? 'checked' : ''}>${esc(c.l)}</label>${ay}`;
+      if (c.t === 'area') return `${l}<textarea id="${id}" name="${c.k}" rows="${c.rows || 6}" placeholder="${esc(c.ph || '')}" spellcheck="false" autocomplete="off">${esc(c.v == null ? '' : c.v)}</textarea>${ay}`;
       if (c.t === 'checks') return `<label>${esc(c.l)}</label>${c.opts.map(([v, tx]) => `<label class="chk"><input type="checkbox" name="${c.k}" value="${esc(v)}" ${(c.v || []).includes(v) ? 'checked' : ''}>${esc(tx)}</label>`).join('')}${ay}`;
       const tipo = c.t === 'number' ? 'type="number" inputmode="decimal" step="any"' : c.t === 'time' ? 'type="time"' : 'type="text" maxlength="80"';
       return `${l}<input id="${id}" name="${c.k}" ${tipo} value="${esc(c.v == null ? '' : c.v)}" placeholder="${esc(c.ph || '')}">${ay}`;
@@ -274,6 +275,7 @@
       if (c.t === 'number') { const x = String(fd.get(c.k) || '').trim(); v[c.k] = x === '' ? null : num(x); }
       else if (c.t === 'dias') v[c.k] = fd.getAll(c.k).map(Number).filter(n => n >= 0 && n <= 6);
       else if (c.t === 'checks') v[c.k] = fd.getAll(c.k);
+      else if (c.t === 'area') v[c.k] = String(fd.get(c.k) == null ? '' : fd.get(c.k));
       else if (c.t === 'check') v[c.k] = fd.get(c.k) === 'on';
       else v[c.k] = String(fd.get(c.k) == null ? '' : fd.get(c.k)).replace(/\s+/g, ' ').trim().slice(0, 80);
     });
@@ -418,10 +420,17 @@
   const anuncioVisible = () => !!S.listo && !wiz && S.settings.anunciosDemo !== false;
   const AVISO_PIE = '<p class="foot">Ayuda personal para llevar tus hábitos: no reemplaza las indicaciones de tu médico ni de otros profesionales de la salud. Si te sentís mal, buscá atención médica.</p>';
 
+  // El aviso de respaldo aparece unos segundos (una vez por día) y se va solo; el estado y los botones quedan siempre en Ajustes → Mis datos.
+  let respaldoVivo = false;
   function tarjetaRespaldo() {
     const s = S.settings;
     if (!hayRegistros() || diasDeUso() < 3 || diasSinRespaldo() < 7 || s.respaldoPospuesto === hoy()) return '';
-    return `<div class="card warn"><b>${ICONO('respaldo')} Hacé un respaldo</b><p>${s.ultimoRespaldo ? 'Hace ' + diasSinRespaldo() + ' días que no exportás uno.' : 'Todavía no exportaste ninguno.'} Tus datos viven solo en este teléfono.</p><div class="row"><button class="pri grow" data-a="export">Exportar respaldo</button><button class="ghost grow" data-a="resp-luego">Más tarde</button></div></div>`;
+    if (!respaldoVivo) {
+      if (s.respaldoAvisoDia === hoy()) return '';
+      respaldoVivo = true; s.respaldoAvisoDia = hoy(); save();
+      setTimeout(() => { respaldoVivo = false; if (tab === 'hoy' && !wiz) render(); }, 10000);
+    }
+    return `<div class="card warn efimera"><b>${ICONO('respaldo')} Hacé un respaldo</b><p>${s.ultimoRespaldo ? 'Hace ' + diasSinRespaldo() + ' días que no exportás uno.' : 'Todavía no exportaste ninguno.'} Tus datos viven solo en este teléfono. <small>Lo tenés siempre en Ajustes → Mis datos.</small></p><div class="row"><button class="pri grow" data-a="export">Exportar respaldo</button><button class="ghost grow" data-a="resp-luego">Cerrar</button></div></div>`;
   }
   function tarjetasAvisos() {
     let h = '';
@@ -797,9 +806,11 @@
     const datos = `<div class="card"><h3>Mis datos</h3>
       <p class="muted">Todo se guarda solo en este teléfono: no hay cuentas ni servidores. Hacé copias de seguridad. Último respaldo: <b>${s.ultimoRespaldo ? fmtFecha(ymd(new Date(s.ultimoRespaldo))) : 'nunca'}</b>.</p>
       <div class="row"><button class="pri grow" data-a="export">Exportar respaldo (JSON)</button><button class="ghost grow" data-a="copiar">Copiar respaldo</button></div>
-      <div class="row" style="margin-top:8px"><button class="ghost grow" data-a="import">Importar respaldo</button><button class="dang grow" data-a="borrar">Borrar todo</button></div>
-      <small>"Importar respaldo" también acepta el respaldo de Salud Activa: lo convierte y no pierde nada.</small>
-      <input id="fileIn" type="file" accept="application/json,.json" hidden></div>
+      <h3 class="sub">Traer datos de un respaldo</h3>
+      <div class="row"><button class="ghost grow" data-a="import">Elegir archivo</button><button class="ghost grow" data-a="pegar">Pegar respaldo</button></div>
+      <small>Sirve para un respaldo de A Mi Ritmo o de <b>Salud Activa</b> (lo convierte y no pierde nada). Si el archivo lo recibiste por WhatsApp, guardalo en Descargas; o más fácil: en la otra app tocá "Copiar respaldo" y acá "Pegar respaldo".</small>
+      <div class="row" style="margin-top:12px"><button class="dang grow" data-a="borrar">Borrar todo</button></div>
+      <input id="fileIn" type="file" hidden></div>
     <div class="card ${s.avisoAceptado ? '' : 'warn'}"><h3>Aviso importante</h3><p>${esc(AVISO_TXT)}</p>${s.avisoAceptado ? `<small>Lo aceptaste el ${fmtFecha(ymd(new Date(s.avisoAceptado)))}.</small>` : '<div class="row"><button class="pri grow" data-a="aviso-ok">Entendí y acepto</button></div>'}</div>
     <div class="card"><h3>Acerca de A Mi Ritmo</h3><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. A Mi Ritmo no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
       <div class="row"><button class="ghost grow" data-a="wiz-rehacer">Rehacer el asistente inicial</button></div></div>
@@ -1050,19 +1061,32 @@
     d.importado = { de: 'Salud Activa', fecha: Date.now(), datos: r };   // copia íntegra de lo que se importó, por las dudas
     return d;
   }
+  // Explica qué pasó con un archivo que no se pudo importar (en lugar de un cartel genérico).
+  function errorImportar(msg) { avisoRapido('No se pudo importar', msg, [['Entendido', 'modal-cancel', '', 'pri']]); }
+  function importarTexto(texto) {
+    const t = String(texto || '').replace(/^\uFEFF/, '').trim();
+    if (!t) return errorImportar('El archivo está vacío. Probá exportar el respaldo de nuevo.');
+    if (t.length > 25e6) return errorImportar('El archivo es demasiado grande para ser un respaldo.');
+    let r; try { r = JSON.parse(t); } catch (e) { return errorImportar(/^<(!doctype|html)/i.test(t) ? 'Ese archivo es un informe (una página web), no un respaldo. Buscá "Exportar respaldo" (un archivo .json) o usá "Pegar respaldo".' : 'Ese archivo no tiene el formato de un respaldo (JSON). Si lo mandaste por WhatsApp, probá guardarlo en Descargas o usá "Pegar respaldo" con el texto copiado.'); }
+    const deSA = esCopiaSaludActiva(r);
+    if (!deSA && (!esObjeto(r) || !esObjeto(r.days) || !Array.isArray(r.medidas))) return errorImportar(esObjeto(r) ? 'Es un archivo de datos, pero no reconozco el formato: no es un respaldo de A Mi Ritmo ni de Salud Activa.' : 'El contenido no es un respaldo.');
+    if (!confirm(deSA ? 'Es una copia de Salud Activa. Se convierte a A Mi Ritmo (tu rutina, espalda, presión, peso, colesterol, saturación, actividad y alimentación) y reemplaza los datos actuales de A Mi Ritmo. Tu copia original queda guardada adentro. ¿Continuar?' : 'Esto reemplaza los datos actuales por los de la copia. ¿Continuar?')) return;
+    try {
+      try { const actual = localStorage.getItem(KEY); if (actual) guardarCopia(KEY + '_antes_importar', actual, true); } catch (e) { /* nada */ } // por si se importó el archivo equivocado
+      localStorage.setItem(KEY, JSON.stringify(deSA ? desdeSaludActiva(r) : r)); S = load(); save(); wiz = null; if (deSA) tab = 'hoy'; setupReminders(); changed(); toast(deSA ? 'Copia de Salud Activa importada' : 'Copia importada');
+    } catch (e) { errorImportar('No se pudieron guardar los datos importados en este teléfono.'); }
+  }
   function importar(file) {
     const rd = new FileReader();
-    rd.onload = () => {
-      try {
-        const r = JSON.parse(rd.result);
-        const deSA = esCopiaSaludActiva(r);
-        if (!deSA && (!esObjeto(r) || !esObjeto(r.days) || !Array.isArray(r.medidas))) throw new Error('formato');
-        if (!confirm(deSA ? 'Es una copia de Salud Activa. Se convierte a A Mi Ritmo (tu rutina, espalda, presión, peso, colesterol, saturación, actividad y alimentación) y reemplaza los datos actuales de A Mi Ritmo. Tu copia original queda guardada adentro. ¿Continuar?' : 'Esto reemplaza los datos actuales por los de la copia. ¿Continuar?')) return;
-        try { const actual = localStorage.getItem(KEY); if (actual) guardarCopia(KEY + '_antes_importar', actual, true); } catch (e) { /* nada */ } // por si se importó el archivo equivocado
-        localStorage.setItem(KEY, JSON.stringify(deSA ? desdeSaludActiva(r) : r)); S = load(); save(); wiz = null; if (deSA) tab = 'hoy'; setupReminders(); changed(); toast(deSA ? 'Copia de Salud Activa importada' : 'Copia importada');
-      } catch (e) { toast('El archivo no es una copia válida'); }
-    };
+    rd.onload = () => importarTexto(rd.result);
+    rd.onerror = () => errorImportar('No se pudo leer el archivo. Probá guardarlo en Descargas y elegirlo de ahí.');
     rd.readAsText(file);
+  }
+  function modalPegarRespaldo() {
+    abrirModal('Pegar respaldo', [{ k: 'txt', t: 'area', l: 'Texto del respaldo', v: '', rows: 7, ph: 'Pegá acá lo que copiaste con "Copiar respaldo"', ayuda: 'En Salud Activa (o en A Mi Ritmo): Ajustes → Copiar respaldo. Después volvé acá y pegalo.' }], v => {
+      if (!v.txt.trim()) return 'Pegá el texto del respaldo.';
+      setTimeout(() => importarTexto(v.txt), 0); return undefined;
+    });
   }
   function borrarTodo() {
     if (hayDatos() && confirm('Antes de borrar: ¿querés exportar un respaldo? Aceptá para exportarlo (no se borra nada todavía).')) { exportar(); return; }
@@ -1352,6 +1376,7 @@
       case 'export': exportar(); break;
       case 'copiar': copiarRespaldo(); break;
       case 'import': $('#fileIn').click(); break;
+      case 'pegar': modalPegarRespaldo(); break;
       case 'borrar': borrarTodo(); break;
       case 'resp-luego': S.settings.respaldoPospuesto = hoy(); changed(); break;
       case 'del': {
