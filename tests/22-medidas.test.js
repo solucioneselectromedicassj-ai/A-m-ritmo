@@ -68,7 +68,7 @@ test('gráfico: sin límites no hay líneas; con mín y máx se sombrea; con uno
 
 test('modos: solo en "avisos" se alerta, y solo con límites que definió la persona', async ({ abrir }) => {
   const conLim = MED('presion', { campos: MED('presion').campos.map(c => (c.k === 'sis' ? Object.assign({}, c, { max: 130 }) : c)) });
-  const registros = { m_presion: [{ fecha: '2026-10-18', sis: 150, dia: 90 }] };
+  const registros = { m_presion: [{ fecha: '2026-10-19', sis: 150, dia: 90 }] };   // hoy
   for (const [modo, alerta] of [['registro', false], ['recordatorios', false], ['avisos', true]]) {
     const { page } = await abrir({ ls: conMed([conLim], { modo, registros }) });
     const h = await texto(page), m = (await ir(page, 'medidas'), await texto(page));
@@ -140,4 +140,23 @@ test('mediciones: nombres y unidades con HTML se escapan', async ({ abrir }) => 
   for (const t of ['hoy', 'medidas', 'ajustes']) { await ir(page, t); assert.strictEqual(await page.locator('#view img').count(), 0, t); }
   assert.strictEqual(await page.evaluate(() => window.__xss), undefined);
   assert.match(await texto(page), /<img src=x/);
+});
+
+test('aviso de fuera de rango: solo para lo de hoy (una lectura vieja, por ejemplo importada, no queda pegada) y se cierra con "Entendido"', async ({ abrir }) => {
+  const conLim = MED('presion', { campos: MED('presion').campos.map(c => (c.k === 'sis' ? Object.assign({}, c, { max: 130 }) : c)) });
+  const rx = /por encima del máximo que definiste \(130\)/;
+  // lectura de hace 15 días (como la que vino de Salud Activa): no avisa ni en Hoy ni en la medición
+  const vieja = await abrir({ ls: conMed([conLim], { modo: 'avisos', registros: { m_presion: [{ fecha: '2026-10-04', sis: 170, dia: 100 }] } }) });
+  assert.doesNotMatch(await texto(vieja.page), /fuera del rango/); await ir(vieja.page, 'medidas'); assert.doesNotMatch(await texto(vieja.page), /fuera del rango/);
+  const ayer = await abrir({ ls: conMed([conLim], { modo: 'avisos', registros: { m_presion: [{ fecha: '2026-10-18', sis: 170, dia: 100 }] } }) });
+  assert.doesNotMatch(await texto(ayer.page), /fuera del rango/, 'ayer tampoco: el aviso es del momento en que se anota');
+  // de hoy: avisa, se cierra con "Entendido", queda cerrado al recargar, y una lectura nueva vuelve a avisar
+  const hoyReg = await abrir({ ls: conMed([conLim], { modo: 'avisos', registros: { m_presion: [{ fecha: '2026-10-19', hora: '09:10', sis: 150, dia: 90 }] } }) });
+  const p = hoyReg.page; assert.match(await texto(p), rx);
+  await p.click('[data-a=aviso-med-ok]'); assert.doesNotMatch(await texto(p), /fuera del rango/);
+  await ir(p, 'medidas'); assert.doesNotMatch(await texto(p), /fuera del rango/, 'cerrado también en la pantalla de la medición');
+  await p.reload(); await p.waitForFunction(() => window.SA); assert.doesNotMatch(await texto(p), /fuera del rango/, 'queda cerrado');
+  await ir(p, 'medidas');
+  await p.fill('#rFecha', '2026-10-19'); await p.fill('#r_sis', '160'); await p.fill('#r_dia', '95'); await p.click('form[data-f=reg] button[type=submit]');
+  assert.match(await texto(p), rx, 'un valor nuevo fuera de rango vuelve a avisar'); assert.match(await texto(p), /Fuera del rango que definiste[\s\S]*Entendido/);
 });

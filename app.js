@@ -111,7 +111,7 @@
   const DEFAULTS = () => ({
     v: VERSION, listo: false, modo: 'registro',
     modulos: { ejercicio: false, pasos: false, agua: false, actividad: false, comida: false, medidas: false },
-    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, respaldoAvisoDia: '', figAnim: true, recMesComida: true, anunciosDemo: true, hcUltimo: 0, hcAuto: false, avisoAceptado: 0, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
+    settings: { metaPasos: null, metaAgua: null, vaso: 250, aeroMeta: null, descansoSeg: 45, recAgua: false, avisosVistos: {}, respaldoAvisoDia: '', figAnim: true, recMesComida: true, anunciosDemo: true, hcUltimo: 0, hcAuto: false, avisoAceptado: 0, recPasos: false, recPasosHora: '20:00', seguirOn: true, seguirHora: '21:00', pasosRechazos: 0, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', segundoPlano: true, umbral: 1.3,
       ultimoRespaldo: 0, respaldoPospuesto: '', creado: '', color: 'coral', informe: { periodo: 90, excluir: {} } },
     ejercicios: [], sesiones: [], medidas: [], registros: {}, days: {}, comida: { items: [], contadores: [] }, aero: [], molestias: {}, recup: {}, cerrados: {}, recordatorios: [], sensor: null
   });
@@ -300,8 +300,15 @@
   const variacion = (rows, idx, k) => { const a = anterior(rows, idx, k); return a ? pctCambio(rows[idx][k], a[k]) : null; };
   const fueraDeRango = (c, v) => (c.min != null && v < c.min ? 'min' : c.max != null && v > c.max ? 'max' : null);
   // Avisos (solo en modo "avisos"): el último registro contra los límites que definió la persona. Nunca hay límites por defecto.
+  // Un aviso de "fuera de rango" es para el momento en que se anota: solo mira la lectura de HOY, y se puede cerrar con "Entendido".
+  // Una lectura vieja (por ejemplo importada) ya no es un aviso: no queda pegada en la pantalla.
+  const claveReg = (m, u) => `${u.fecha}|${u.hora || ''}|${m.campos.map(c => u[c.k]).join(',')}`;
+  function tarjetaAvisoMedida(m, textos, conTitulo) {
+    return `<div class="card warn"><b>${conTitulo ? esc(m.n) + ': fuera del rango que definiste' : 'Fuera del rango que definiste'}</b>${textos.map(t => `<p>${esc(t)}</p>`).join('')}<small>Repetí la medición con calma y comentalo con tu profesional si se repite.</small><div class="row" style="margin-top:8px"><button class="ghost mini" data-a="aviso-med-ok" data-id="${esc(m.id)}">Entendido</button></div></div>`;
+  }
   function avisosMedida(m) {
-    const u = regsOrd(m)[0]; if (!u) return [];
+    const u = regsOrd(m)[0]; if (!u || u.fecha !== hoy()) return [];
+    if ((S.settings.avisosVistos || {})[m.id] === claveReg(m, u)) return [];
     return m.campos.filter(c => u[c.k] != null && fueraDeRango(c, u[c.k])).map(c => {
       const dir = fueraDeRango(c, u[c.k]);
       return `${m.n} (${fmtFecha(u.fecha)}): ${c.n} ${fmtNum(u[c.k], c.dec)}${c.u ? ' ' + c.u : ''} está ${dir === 'min' ? 'por debajo del mínimo' : 'por encima del máximo'} que definiste (${fmtNum(dir === 'min' ? c.min : c.max, c.dec)}).`;
@@ -436,7 +443,7 @@
     let h = '';
     if (mod('medidas')) {
       S.medidas.forEach(m => {
-        if (conAvisos()) { const a = avisosMedida(m); if (a.length) h += `<div class="card warn"><b>${esc(m.n)}: fuera del rango que definiste</b>${a.map(t => `<p>${esc(t)}</p>`).join('')}<small>Repetí la medición con calma y comentalo con tu profesional si se repite.</small></div>`; }
+        if (conAvisos()) { const a = avisosMedida(m); if (a.length) h += tarjetaAvisoMedida(m, a, true); }
         const p = proximaFecha(m);
         if (p && p.avisar) h += `<div class="card warn"><b>${ICONO('calendario')} ${esc(m.n)}: toca repetir</b><p>${p.dias > 0 ? (p.dias === 1 ? 'Falta 1 día' : `Faltan ${p.dias} días`) + ' para la fecha que elegiste' : 'Ya es la fecha que elegiste'} (${fmtDMA(p.desde)}), ${m.repetirMeses} mes${m.repetirMeses === 1 ? '' : 'es'} después del último registro.</p><small>${AVISO_APP_ABIERTA}</small></div>`;
       });
@@ -634,7 +641,7 @@
     const band = c.min != null && c.max != null ? [c.min, c.max] : null;
     const lines = band ? [] : [c.min != null ? { v: c.min, label: 'Mín ' + fmtNum(c.min, c.dec) } : null, c.max != null ? { v: c.max, label: 'Máx ' + fmtNum(c.max, c.dec) } : null].filter(Boolean);
     const p = proximaFecha(m);
-    return `${conAvisos() ? avisosMedida(m).map(t => `<div class="card warn"><b>Fuera del rango que definiste</b><p>${esc(t)}</p></div>`).join('') : ''}
+    return `${conAvisos() && avisosMedida(m).length ? tarjetaAvisoMedida(m, avisosMedida(m), false) : ''}
     <div class="card"><h3>Registrar ${esc(m.n)}</h3>
       <form data-f="reg" data-id="${esc(m.id)}"><label for="rFecha">Fecha</label><input id="rFecha" name="fecha" type="date" value="${hoy()}" max="${hoy()}" required>
         <div class="grid2">${campos.map(campoIn).join('')}</div>
@@ -1306,6 +1313,7 @@
       case 'mes-luego': S.settings.mesComidaPosp = hoy(); changed(); break;
       case 'com-obj': modalObjetivosComida(); break;
       case 'fig-pausa': { const fg = b.closest('.fig'); if (fg) fg.classList.toggle('pausada'); break; }
+      case 'aviso-med-ok': { const m = medPorId(id), u = m && regsOrd(m)[0]; if (u) { S.settings.avisosVistos = S.settings.avisosVistos || {}; S.settings.avisosVistos[m.id] = claveReg(m, u); changed(); } break; }
       case 'aviso-ok': S.settings.avisoAceptado = Date.now(); changed(); toast('Gracias. Lo podés releer en Ajustes.'); break;
       case 'hoy-abrir': abiertasHoy.add(id); render(); break;
       case 'sub-evp': subEvP = b.dataset.v; render(); break;
