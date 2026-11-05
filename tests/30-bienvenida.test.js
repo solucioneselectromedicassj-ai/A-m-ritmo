@@ -60,3 +60,11 @@ test('Acerca de: quién la desarrolló y que no es un equipo médico', async ({ 
   await ir(page, 'ajustes'); const x = await texto(page);
   assert.match(x, /Acerca de A Mi Ritmo Desarrollado por SEM Soluciones Electromédicas San Juan, Argentina/); assert.match(x, /no es un equipo médico ni un servicio médico/);
 });
+
+test('Acerca de: correo de contacto con enlace para escribir (toque de al menos 44 px)', async ({ abrir }) => {
+  const { page } = await abrir({ ls: base({ modulos: TODOS }) });
+  await ir(page, 'ajustes'); assert.match(await texto(page), /Contacto: solucioneselectromedicassj@gmail\.com/);
+  const a = page.locator('a.btn-link'); assert.match(await a.getAttribute('href'), /^mailto:solucioneselectromedicassj@gmail\.com\?subject=/);
+  const r = await a.evaluate(e => { const b = e.getBoundingClientRect(); return { h: Math.round(b.height), ancho: document.documentElement.scrollWidth, vp: window.innerWidth }; });
+  assert.ok(r.h >= 44 && r.ancho <= r.vp, JSON.stringify(r));
+});

@@ -308,3 +308,5 @@ button .ico{margin-right:.1em}
 @media (prefers-reduced-motion:reduce){.card.efimera{animation:none}}
 
 .creditos{font-size:1.02rem}.creditos b{color:var(--fg)}
+
+.btn-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border-radius:16px;border:1px solid color-mix(in srgb,var(--pri) 40%,var(--line));background:color-mix(in srgb,var(--soft) 55%,transparent);color:var(--pri);font-weight:600;text-decoration:none}
