@@ -420,6 +420,7 @@
     'tilde-off': '<circle cx="12" cy="12" r="8.5"/>'
   };
   const ICONO = n => (ICONOS[n] ? `<svg class="ico ico-${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONOS[n]}</svg>` : '');
+  const CREDITOS = 'SEM Soluciones Electromédicas';
   const AVISO_TXT = 'A Mi Ritmo es una ayuda personal para llevar tus hábitos. No reemplaza las indicaciones de tu médico ni de otros profesionales de la salud, y no diagnostica ni indica tratamientos. Las metas y los límites los definís vos, idealmente con tu profesional. Si te sentís mal, buscá atención médica.';
   const tarjetaAviso = () => (S.settings.avisoAceptado ? '' : `<div class="card warn"><b>Antes de empezar</b><p>${esc(AVISO_TXT)}</p><div class="row"><button class="pri grow" data-a="aviso-ok">Entendí y acepto</button></div></div>`);
   // Espacio publicitario DE EJEMPLO: una franja fija sobre la barra de navegación (como en SEM Tools). Todavía no hay ningún servicio de anuncios.
@@ -819,7 +820,7 @@
       <div class="row" style="margin-top:12px"><button class="dang grow" data-a="borrar">Borrar todo</button></div>
       <input id="fileIn" type="file" hidden></div>
     <div class="card ${s.avisoAceptado ? '' : 'warn'}"><h3>Aviso importante</h3><p>${esc(AVISO_TXT)}</p>${s.avisoAceptado ? `<small>Lo aceptaste el ${fmtFecha(ymd(new Date(s.avisoAceptado)))}.</small>` : '<div class="row"><button class="pri grow" data-a="aviso-ok">Entendí y acepto</button></div>'}</div>
-    <div class="card"><h3>Acerca de A Mi Ritmo</h3><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. A Mi Ritmo no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
+    <div class="card"><h3>Acerca de A Mi Ritmo</h3><p class="creditos">Desarrollado por <b>${CREDITOS}</b><br><span class="muted">San Juan, Argentina</span></p><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. A Mi Ritmo no es un equipo médico ni un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
       <div class="row"><button class="ghost grow" data-a="wiz-rehacer">Rehacer el asistente inicial</button></div></div>
     ${mod('ejercicio') ? `<div class="card"><h3>Figuras de los ejercicios</h3><label class="chk"><input type="checkbox" data-a="fig-anim" ${s.figAnim !== false ? 'checked' : ''}>Mostrar las figuras con un pequeño movimiento</label><small>Si preferís verlas quietas, destildá. También podés tocar una figura para pausarla.</small></div>` : ''}
     <div class="card"><h3>Anuncios</h3><label class="chk"><input type="checkbox" data-a="anuncios-demo" ${s.anunciosDemo !== false ? 'checked' : ''}>Mostrar el espacio de anuncios de ejemplo</label><small>Es solo para ver cómo quedaría: todavía no hay publicidad real.</small></div>`;

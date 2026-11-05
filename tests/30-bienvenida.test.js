@@ -7,6 +7,7 @@ test('bienvenida: aparece con el logo, se va sola a los segundos y deja ver el d
   assert.ok(await page.isVisible('#splash'));
   const t = await page.innerText('#splash'); assert.match(t, /A Mi Ritmo/); assert.match(t, /Tu plan, a tu manera/); assert.match(t, /Tocá para continuar/);
   assert.doesNotMatch(t, /médico/, 'el aviso legal ya no está en la bienvenida: va adentro, con "Entendí y acepto"');
+  assert.match(t, /Desarrollado por SEM Soluciones Electromédicas/);
   await page.waitForSelector('#splash.fuera', { timeout: 9000 });
   await page.waitForSelector('#splash', { state: 'detached', timeout: 3000 });
   assert.ok(await page.isVisible('#view h2'), 'el dashboard queda a la vista');
@@ -52,4 +53,10 @@ test('Android: el título deja lugar a la barra de estado (alto leído de MainAc
   assert.ok((await pad()) >= 60, 'con la altura real (52) + margen');
   const web = await abrir({ ls: base({ modulos: TODOS }) });
   assert.ok(!(await web.page.evaluate(() => document.body.classList.contains('nativo'))), 'en la web no cambia nada');
+});
+
+test('Acerca de: quién la desarrolló y que no es un equipo médico', async ({ abrir }) => {
+  const { page } = await abrir({ ls: base({ modulos: TODOS }) });
+  await ir(page, 'ajustes'); const x = await texto(page);
+  assert.match(x, /Acerca de A Mi Ritmo Desarrollado por SEM Soluciones Electromédicas San Juan, Argentina/); assert.match(x, /no es un equipo médico ni un servicio médico/);
 });
