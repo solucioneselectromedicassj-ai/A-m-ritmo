@@ -48,6 +48,7 @@ dependencies {
     implementation "com.google.guava:guava:33.4.0-android"
     // Health Connect (lectura de saturación y pulso de relojes y pulseras)
     implementation "androidx.health.connect:connect-client:1.2.0-alpha01"
+    implementation "com.google.android.gms:play-services-auth:21.2.0"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0"
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"

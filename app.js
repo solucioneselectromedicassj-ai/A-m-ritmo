@@ -545,7 +545,7 @@
     if (mod('agua')) filas.push(meter('Agua', d.agua || 0, s.metaAgua, 'ml'));
     if (mod('actividad')) filas.push(meter('Actividad de la semana', minSemana(claveSemana(now)), s.aeroMeta, 'min'));
     if (mod('comida')) filas.push(meter('Comidas anotadas hoy', S.comida.items.filter(it => marcasDia()[it.id]).length));
-    return `<h2>${DIAS[now.getDay()]} ${now.getDate()} de ${MESES[now.getMonth()]}</h2>${tarjetaAviso()}${tarjetaRespaldo()}${tarjetasAvisos()}${tarjetaMesComida()}
+    return `<h2>${DIAS[now.getDay()]} ${now.getDate()} de ${MESES[now.getMonth()]}</h2>${cuenta() && cuenta().nombre ? `<p class="muted saludo">Hola, ${esc(cuenta().nombre.split(' ')[0])}</p>` : ''}${tarjetaAviso()}${tarjetaRespaldo()}${tarjetasAvisos()}${tarjetaMesComida()}
     <div class="card"><h3>Resumen del día</h3>${filas.join('') || '<p class="muted">Todavía no activaste ningún módulo. Hacelo en Ajustes.</p>'}</div>
     ${tarjetaAguaPend()}
     ${mod('agua') ? `<div class="card"><h3>Agua</h3><div class="row"><button class="ghost grow" data-a="agua-">− ${s.vaso} ml</button><button class="pri grow" data-a="agua+">+ vaso (${s.vaso} ml)</button></div></div>` : ''}
@@ -840,6 +840,7 @@
       <div class="row" style="margin-top:12px"><button class="dang grow" data-a="borrar">Borrar todo</button></div>
       <input id="fileIn" type="file" hidden></div>
     <div class="card ${s.avisoAceptado ? '' : 'warn'}"><h3>Aviso importante</h3><p>${esc(AVISO_TXT)}</p>${s.avisoAceptado ? `<small>Lo aceptaste el ${fmtFecha(ymd(new Date(s.avisoAceptado)))}.</small>` : '<div class="row"><button class="pri grow" data-a="aviso-ok">Entendí y acepto</button></div>'}</div>
+    ${plug('GoogleLogin') ? `<div class="card"><h3>Cuenta</h3>${cuenta() ? `<p>Entraste como <b>${esc(cuenta().nombre || cuenta().email)}</b><br><span class="muted">${esc(cuenta().email)}</span></p><div class="row"><button class="ghost grow" data-a="g-salir">Salir de la cuenta</button></div>` : `<p class="muted">Opcional: entrá con tu cuenta de Google para que la app te salude por tu nombre.</p><div class="row"><button class="pri grow" data-a="g-entrar">Entrar con Google</button></div>`}<small>Solo se usan tu nombre y tu mail en este teléfono. Tus datos de salud no se envían a ningún lado.</small></div>` : ''}
     <div class="card"><h3>Acerca de A Mi Ritmo</h3><p class="creditos">Desarrollado por <b>${CREDITOS}</b><br><span class="muted">San Juan, Argentina</span></p><p>Contacto: <b>${CONTACTO}</b></p><div class="row"><a class="btn-link" href="mailto:${CONTACTO}?subject=${encodeURIComponent('A Mi Ritmo: consulta')}">Escribirnos por correo</a></div><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. A Mi Ritmo no es un equipo médico ni un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
       <div class="row"><button class="ghost grow" data-a="wiz-rehacer">Rehacer el asistente inicial</button></div></div>
     ${mod('ejercicio') ? `<div class="card"><h3>Figuras de los ejercicios</h3><label class="chk"><input type="checkbox" data-a="fig-anim" ${s.figAnim !== false ? 'checked' : ''}>Mostrar las figuras con un pequeño movimiento</label><small>Si preferís verlas quietas, destildá. También podés tocar una figura para pausarla.</small></div>` : ''}
@@ -869,7 +870,8 @@
     const campoNum = (n, l, v, ph) => `<div><label for="w_${n}">${l}</label><input id="w_${n}" name="${n}" type="number" inputmode="decimal" step="any" value="${v == null ? '' : v}" placeholder="${esc(ph)}"></div>`;
     let cuerpo = '';
     if (p === 'bienvenida') cuerpo = `<h2>Bienvenido a A Mi Ritmo</h2><p>Es una libreta para armar <b>tu propio plan de hábitos de salud</b> y anotar tus avances. Vos elegís qué seguir, cuánto y con qué límites. Lo que cargues queda en tu teléfono.</p>
-      <div class="card warn"><b>Importante</b><p>A Mi Ritmo no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p></div>`;
+      <div class="card warn"><b>Importante</b><p>A Mi Ritmo no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p></div>
+      ${plug('GoogleLogin') ? `<div class="card"><h3>Tu cuenta (opcional)</h3>${cuenta() ? `<p>Hola, <b>${esc(cuenta().nombre || cuenta().email)}</b>.</p>` : `<p class="muted">Podés entrar con tu cuenta de Google para que te salude por tu nombre. No es obligatorio.</p><div class="row"><button class="ghost grow" data-a="g-entrar">Entrar con Google</button></div>`}<small>Tus datos de salud se quedan en este teléfono.</small></div>` : ''}`;
     if (p === 'modulos') cuerpo = `<h2>¿Qué querés seguir?</h2><p class="muted">Elegí lo que te sirva. Podés cambiarlo cuando quieras.</p>${MODULOS.map(([k, ic, n, t]) => `<button class="chk-it ${wiz.mods[k] ? 'on' : ''}" data-a="wiz-mod" data-k="${k}" aria-pressed="${wiz.mods[k] ? 'true' : 'false'}"><span>${wiz.mods[k] ? ICONO('tilde-on') : ICONO('tilde-off')}</span><span class="tx"><b>${ICONO(ic)} ${n}</b><small>${t}</small></span></button>`).join('')}`;
     if (p === 'mediciones') cuerpo = `<h2>¿Qué querés medir?</h2><p class="muted">Después podés poner tus propios límites en cada una (opcional).</p>${Object.keys(CATALOGO).map(k => `<button class="chk-it ${wiz.meds[k] ? 'on' : ''}" data-a="wiz-med" data-k="${k}" aria-pressed="${wiz.meds[k] ? 'true' : 'false'}"><span>${wiz.meds[k] ? ICONO('tilde-on') : ICONO('tilde-off')}</span>${ICONO(CATALOGO[k].ic)} ${esc(CATALOGO[k].n)}</button>`).join('')}`;
     if (p === 'ejercicio') cuerpo = `<h2>Tu rutina de ejercicio</h2><p class="muted">Elegí ejemplos para empezar o salteá este paso y creá tus propios ejercicios después. Son ejemplos suaves, <b>no una indicación</b>: consultalos con tu profesional.</p><p class="muted">Los de espalda y core van en una rutina aparte, para que elijas sus propios días y horario (en Ajustes → Mi plan de ejercicio).</p>${BIBLIOTECA.map((b, n) => `${n === 0 || grupoBib(b) !== grupoBib(BIBLIOTECA[n - 1]) ? `<h3 class="sub">${GRUPOS_BIB[grupoBib(b)].titulo}</h3>` : ''}<button class="chk-it ${wiz.bib[n] ? 'on' : ''}" data-a="wiz-bib" data-k="${n}" aria-pressed="${wiz.bib[n] ? 'true' : 'false'}"><span>${wiz.bib[n] ? ICONO('tilde-on') : ICONO('tilde-off')}</span><span class="tx"><b>${esc(b.n)}</b><small>${esc(dosisEj(b))}</small></span></button>`).join('')}`;
@@ -970,6 +972,24 @@
   }
 
   /* ---------- Respaldo ---------- */
+  /* Cuenta de Google (opcional, solo Android): sirve para saludar por el nombre. No se envía nada a ningún servidor. */
+  const cuenta = () => { const c = S.settings.cuenta; return esObjeto(c) && typeof c.email === 'string' && c.email ? c : null; };
+  async function entrarGoogle() {
+    const P = plug('GoogleLogin'); if (!P) return;
+    try {
+      const r = await P.signIn();
+      S.settings.cuenta = { nombre: String((r && r.nombre) || '').slice(0, 80), email: String((r && r.email) || '').slice(0, 120), desde: Date.now() };
+      if (!S.settings.cuenta.email) { delete S.settings.cuenta; toast('No se pudo leer la cuenta.'); return; }
+      save(); render(); toast('Listo, entraste con Google');
+    } catch (e) {
+      if (/cancel|12501|12502/i.test(String((e && (e.message || e.code)) || ''))) return; // la persona cerró el selector
+      toast('No se pudo entrar con Google. Probá de nuevo más tarde.');
+    }
+  }
+  async function salirGoogle() {
+    const P = plug('GoogleLogin'); try { if (P) await P.signOut(); } catch (e) { /* igual se cierra acá */ }
+    delete S.settings.cuenta; save(); render(); toast('Saliste de tu cuenta. Tus datos siguen en el teléfono.');
+  }
   async function compartirArchivo(nombre, texto, titulo, dialogo) {
     const F = plug('Filesystem'), Sh = plug('Share');
     const r = await F.writeFile({ path: nombre, data: texto, directory: 'CACHE', encoding: 'utf8' }); // en el APK no hay descargas del navegador: se guarda en la caché y se abre el menú de compartir
@@ -1421,6 +1441,8 @@
       case 'wiz-sig': leerWizMetas(); wiz.paso++; render(); window.scrollTo(0, 0); break;
       case 'wiz-atras': leerWizMetas(); wiz.paso = Math.max(0, wiz.paso - 1); render(); window.scrollTo(0, 0); break;
       case 'wiz-fin': terminarAsistente(); break;
+      case 'g-entrar': entrarGoogle(); break;
+      case 'g-salir': if (confirm('¿Salir de tu cuenta de Google? Tus datos no se borran.')) salirGoogle(); break;
       case 'wiz-rehacer': if (confirm('Se abre el asistente inicial. Tus datos no se borran. ¿Seguir?')) { wiz = { paso: 0, mods: Object.assign({}, S.modulos), meds: {}, bib: {}, modo: S.modo }; S.listo = false; save(); render(); window.scrollTo(0, 0); } break;
     }
   });

@@ -67,6 +67,7 @@ async function abrir(opts = {}) {
         LocalNotifications: { getPending: () => ({ notifications: [] }), cancel: () => {}, checkPermissions: () => ({ display: 'granted' }), requestPermissions: () => ({ display: 'granted' }), createChannel: () => {}, schedule: () => {}, addListener: (ev, cb) => { (window.__escuchas = window.__escuchas || {})[ev] = cb; return { remove: () => {} }; } },
         Filesystem: { writeFile: a => ({ uri: 'file:///cache/' + a.path }) },
         Share: { share: () => ({}) },
+        GoogleLogin: { signIn: () => ({ nombre: 'Ana María Pérez', email: 'ana@gmail.com' }), signOut: () => ({}) },
         HealthSync: { isAvailable: () => ({ status: 'available' }), hasPermission: () => ({ granted: false }), requestPermission: () => ({ granted: false }), leer: () => ({ spo2: [], pulso: [] }) }
       };
       const plugins = {};

@@ -13,7 +13,7 @@ const envenenar = (x, numeros) => {
 };
 const ESTADO = () => ({
   v: 1, listo: true, modo: 'avisos', modulos: { ejercicio: true, pasos: true, agua: true, actividad: true, comida: true, medidas: true },
-  settings: { creado: '2026-09-01', metaPasos: 8000, metaAgua: 2000, aeroMeta: 150, vaso: 250, recAgua: true, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', notas: 'x', color: 'coral', informe: { periodo: 90, excluir: {} }, avisoAceptado: 1, hcUltimo: 1, hcAuto: false, ultimoRespaldo: 1 },
+  settings: { creado: '2026-09-01', metaPasos: 8000, metaAgua: 2000, aeroMeta: 150, vaso: 250, recAgua: true, recMin: 90, aguaDesde: '08:00', aguaHasta: '22:00', notas: 'x', color: 'coral', informe: { periodo: 90, excluir: {} }, avisoAceptado: 1, hcUltimo: 1, hcAuto: false, ultimoRespaldo: 1, cuenta: { nombre: 'x', email: 'x', desde: 1 } },
   ejercicios: [{ id: 'e1', n: 'Giros', tipo: 'reps', meta: 30, nota: 'n', fig: 'giros' }, { id: 'e2', n: 'Puente', tipo: 'series', series: 2, reps: 8, nota: 'n', fig: 'puente' }, { id: 'e3', n: 'Plancha', tipo: 'tiempo', series: 2, seg: 15, nota: 'n', fig: 'plancha' }],
   sesiones: [{ id: 's1', n: 'Mañana', dias: [0, 1, 2, 3, 4, 5, 6], hora: '08:00', ej: ['e1', 'e2', 'e3'] }],
   medidas: [
