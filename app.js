@@ -143,7 +143,27 @@
       d.v = Math.max(VERSION, vOld);
     }
     if (!d.settings.creado) d.settings.creado = ymd(new Date());
+    limpiarNumeros(d);
     return d;
+  }
+  /* Defensa ante datos hostiles o dañados (localStorage tocado, respaldo importado): todo campo que la app
+     usa como número se fuerza a número (o null/0) para que nunca llegue texto ajeno a innerHTML. */
+  function limpiarNumeros(d) {
+    const nn = v => (typeof v === 'number' && Number.isFinite(v)) ? v : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
+    const fijar = (o, ks, def) => { if (esObjeto(o)) ks.forEach(k => { if (k in o) { const v = nn(o[k]); o[k] = v === null ? def : v; } }); };
+    const mapa = (o, def) => { if (esObjeto(o)) Object.keys(o).forEach(k => { if (typeof o[k] !== 'boolean') { const v = nn(o[k]); o[k] = v === null ? def : v; } }); };
+    fijar(d.settings, ['metaPasos', 'metaAgua', 'aeroMeta'], null);
+    fijar(d.settings, ['vaso', 'descansoSeg', 'recMin', 'hcUltimo', 'pasosRechazos', 'ultimoRespaldo', 'avisoAceptado', 'umbral'], 0);
+    if (esObjeto(d.settings.informe)) fijar(d.settings.informe, ['periodo'], 90);
+    Object.keys(d.days).forEach(k => { const x = d.days[k]; if (!esObjeto(x)) { delete d.days[k]; return; } fijar(x, ['pasos', 'agua'], 0); mapa(x.ej, 0); mapa(x.cont, 0); });
+    mapa(d.recup, 0);
+    d.aero.forEach(a => fijar(a, ['min'], 0));
+    d.ejercicios.forEach(e => fijar(e, ['meta', 'series', 'reps', 'seg'], 0));
+    d.medidas.forEach(m => { fijar(m, ['repetirMeses'], null); (Array.isArray(m.campos) ? m.campos : []).forEach(c => { if (esObjeto(c)) { fijar(c, ['min', 'max', 'dec'], null); if (Array.isArray(c.r)) c.r = c.r.map(v => nn(v) === null ? 0 : nn(v)); } }); });
+    Object.keys(d.registros).forEach(id => { if (Array.isArray(d.registros[id])) d.registros[id] = d.registros[id].filter(esObjeto).map(r => { Object.keys(r).forEach(k => { if (!['fecha', 'hora', 'origen', 'hc', 'tipo', 'ts'].includes(k)) { const v = nn(r[k]); if (v === null) delete r[k]; else r[k] = v; } }); return r; }); });
+    d.comida.contadores.forEach(c => fijar(c, ['meta'], 0));
+    d.comida.items.forEach(i => { if (esObjeto(i.obj)) fijar(i.obj, ['d'], 0); });
+    if (esObjeto(d.sensor)) fijar(d.sensor, ['last', 't'], 0);
   }
   let S = load();
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('No se pudo guardar en este dispositivo'); } }
