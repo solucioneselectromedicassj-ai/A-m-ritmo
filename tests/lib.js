@@ -33,7 +33,7 @@ async function cerrar() { if (browser) await browser.close(); if (server) server
    opts.native  true | { Plugin: {metodo: fn} }  simula la app Android (Capacitor)
    opts.dialogos  lista de respuestas para confirm/prompt/alert (en orden); true/false para confirm, texto para prompt */
 async function abrir(opts = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 360, height: 740 }, acceptDownloads: true, permissions: ['clipboard-read', 'clipboard-write'] });
+  const ctx = await browser.newContext({ viewport: { width: 360, height: 740 }, acceptDownloads: true, bypassCSP: !opts.csp, permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await ctx.newPage();
   const errores = [];
   page.on('pageerror', e => errores.push('pageerror: ' + e.message));

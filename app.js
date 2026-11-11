@@ -844,6 +844,7 @@
     <div class="card"><h3>Acerca de A Mi Ritmo</h3><p class="creditos">Desarrollado por <b>${CREDITOS}</b><br><span class="muted">San Juan, Argentina</span></p><p>Contacto: <b>${CONTACTO}</b></p><div class="row"><a class="btn-link" href="mailto:${CONTACTO}?subject=${encodeURIComponent('A Mi Ritmo: consulta')}">Escribirnos por correo</a></div><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. A Mi Ritmo no es un equipo médico ni un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
       <div class="row"><button class="ghost grow" data-a="wiz-rehacer">Rehacer el asistente inicial</button></div></div>
     ${mod('ejercicio') ? `<div class="card"><h3>Figuras de los ejercicios</h3><label class="chk"><input type="checkbox" data-a="fig-anim" ${s.figAnim !== false ? 'checked' : ''}>Mostrar las figuras con un pequeño movimiento</label><small>Si preferís verlas quietas, destildá. También podés tocar una figura para pausarla.</small></div>` : ''}
+    ${NATIVE ? `<div class="card"><h3>Privacidad de los avisos</h3><label class="chk"><input type="checkbox" data-a="aviso-privado" ${s.avisoPrivado === true ? 'checked' : ''}>Avisos sin detalles en la pantalla de bloqueo</label><small>Si lo activás, los avisos solo dicen "Tenés un aviso" y no muestran nombres de rutinas, mediciones ni recordatorios.</small></div>` : ''}
     <div class="card"><h3>Anuncios</h3><label class="chk"><input type="checkbox" data-a="anuncios-demo" ${s.anunciosDemo !== false ? 'checked' : ''}>Mostrar el espacio de anuncios de ejemplo</label><small>Es solo para ver cómo quedaría: todavía no hay publicidad real.</small></div>`;
     const recs = `<div class="card"><h3>Mis recordatorios</h3><small>Lo que quieras que te recuerde: una fruta, la medicación, estirar… Funcionan con los modos que incluyen recordatorios.</small>
       <ul class="list">${S.recordatorios.map(r => `<li><span>${ICONO('campana')} ${esc(r.txt)}<small>${esc(fmtDiasSes(r.dias || []))} · ${esc(r.hora)}</small></span><span class="row"><button class="ghost mini" data-a="rec-edit" data-id="${esc(r.id)}">Editar</button><button class="dang mini" data-a="rec-del" data-id="${esc(r.id)}">Quitar</button></span></li>`).join('') || '<li class="muted">Todavía ninguno</li>'}</ul>
@@ -1451,6 +1452,7 @@
     const t = e.target;
     if (t.id === 'fileIn' && t.files[0]) importar(t.files[0]);
     if (t.dataset && t.dataset.a === 'fig-anim') { S.settings.figAnim = t.checked; changed(); }
+    if (t.dataset && t.dataset.a === 'aviso-privado') { S.settings.avisoPrivado = t.checked; save(); render(); if (NATIVE) scheduleNative(); }
     if (t.dataset && t.dataset.a === 'anuncios-demo') { S.settings.anunciosDemo = t.checked; changed(); }
     if (t.dataset && t.dataset.a === 'salud-auto') { S.settings.hcAuto = t.checked; save(); if (t.checked) importarSalud(true); }
     if (t.dataset && t.dataset.a === 'mod-t') { S.modulos[t.dataset.k] = t.checked; save(); setupReminders(); render(); if (t.dataset.k === 'pasos' && t.checked) iniciarPasos(); }
@@ -1582,6 +1584,8 @@
       if (perm.display !== 'granted') perm = await N.requestPermissions();
       if (perm.display !== 'granted') { toast('Activá las notificaciones de A Mi Ritmo en los ajustes del teléfono'); return; }
       try { await N.createChannel({ id: 'recordatorios', name: 'Recordatorios', importance: 4, vibration: true }); } catch (e) { /* ya existe */ }
+      // Aviso privado: en la pantalla de bloqueo no se ve nada de salud (ni nombres de rutinas o mediciones).
+      if (s.avisoPrivado === true) list.forEach(n => { n.title = '🔔 A Mi Ritmo'; n.body = 'Tenés un aviso. Abrí la app para verlo.'; });
       await N.schedule({ notifications: list });
     } catch (e) { toast('No se pudieron programar los recordatorios'); }
   }

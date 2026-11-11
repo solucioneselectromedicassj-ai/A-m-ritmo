@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Los datos de salud no se copian a la nube de Google ni a otro teléfono por la copia automática de Android:
+     la persona los respalda cuando quiere con "Exportar" (Ajustes → Mis datos). -->
+<data-extraction-rules>
+    <cloud-backup><exclude domain="root"/><exclude domain="file"/><exclude domain="database"/><exclude domain="sharedpref"/><exclude domain="external"/></cloud-backup>
+    <device-transfer><exclude domain="root"/><exclude domain="file"/><exclude domain="database"/><exclude domain="sharedpref"/><exclude domain="external"/></device-transfer>
+</data-extraction-rules>
