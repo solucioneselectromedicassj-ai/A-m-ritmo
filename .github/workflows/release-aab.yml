@@ -1,0 +1,69 @@
+name: AAB firmado para Play Store
+
+# Se corre a mano (Actions → "AAB firmado para Play Store" → Run workflow).
+# Necesita 4 secretos del repositorio (Settings → Secrets and variables → Actions):
+#   RELEASE_KEYSTORE_B64   la clave de subida (.jks) convertida a base64
+#   RELEASE_STORE_PASSWORD contraseña del almacén
+#   RELEASE_KEY_ALIAS      alias de la clave
+#   RELEASE_KEY_PASSWORD   contraseña de la clave
+# Ver store/PUBLICAR.md. El .aab queda como "artifact" de la ejecución (no se publica en ningún lado).
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Nombre de versión (ej: 1.0.0)'
+        default: '1.0.0'
+
+permissions:
+  contents: read
+
+jobs:
+  aab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Verificar que estén los secretos
+        env:
+          B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+          SP: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          KA: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KP: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          for v in B64 SP KA KP; do [ -n "${!v}" ] || { echo "::error::Falta el secreto de $v (ver store/PUBLICAR.md)"; exit 1; }; done
+          echo "$B64" | base64 -d > "$RUNNER_TEMP/subida.jks"
+      - name: Pruebas
+        run: |
+          npm ci
+          npm test
+      - name: Copiar la web y compilar el AAB firmado
+        env:
+          RELEASE_KEYSTORE_FILE: ${{ runner.temp }}/subida.jks
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          node scripts/build-web.js
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease --no-daemon
+      - name: Huella de la clave de subida (para registrarla en Google Cloud)
+        run: keytool -list -v -keystore "$RUNNER_TEMP/subida.jks" -storepass "${{ secrets.RELEASE_STORE_PASSWORD }}" | grep -E "SHA1|SHA-1|SHA256" || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a-mi-ritmo-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+      - name: Borrar la clave del runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/subida.jks"

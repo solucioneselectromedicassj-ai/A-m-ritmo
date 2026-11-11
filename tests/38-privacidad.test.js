@@ -40,3 +40,26 @@ test('seguridad: un manejador inline inyectado no se ejecuta (CSP)', async ({ ab
   const r = await page.evaluate(async () => { const d = document.createElement('div'); d.innerHTML = '<img src=x onerror="window.__csp=1">'; document.body.appendChild(d); await new Promise(r => setTimeout(r, 200)); return window.__csp; });
   assert.strictEqual(r, undefined);
 });
+
+test('política de privacidad: se abre desde Ajustes y desde la bienvenida, tiene todas las secciones y se cierra', async ({ abrir }) => {
+  const { page, errores } = await abrir({ ls: plan({}) });
+  await ir(page, 'ajustes');
+  await page.click('[data-a=politica]');
+  const t = await page.locator('#modal').innerText();
+  for (const x of ['Política de privacidad de A Mi Ritmo', 'solo en tu teléfono', 'Health Connect', 'Ley 25.326', 'No es un equipo médico']) assert.ok(t.includes(x), 'falta: ' + x);
+  await page.click('#modal [data-a=modal-cancel]');
+  assert.strictEqual(await page.locator('#modal').isHidden(), true);
+  const n = await abrir({});
+  await n.page.waitForSelector('[data-a=politica]');
+  await n.page.click('[data-a=politica]');
+  assert.ok((await n.page.locator('#modal').innerText()).includes('Qué datos usa la app'));
+  assert.deepStrictEqual(errores, []);
+});
+
+test('política de privacidad: la página pública docs/privacidad.html sale de la misma fuente', async () => {
+  const fs = require('fs'), P = require('../politica.js');
+  require('child_process').execFileSync('node', ['scripts/build-politica.js']);
+  const h = fs.readFileSync('docs/privacidad.html', 'utf8');
+  assert.ok(h.includes(P.actualizada));
+  P.secciones.forEach(([t]) => assert.ok(h.includes(t.replace(/&/g, '&amp;'))));
+});

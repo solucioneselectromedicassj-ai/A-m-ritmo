@@ -841,7 +841,7 @@
       <input id="fileIn" type="file" hidden></div>
     <div class="card ${s.avisoAceptado ? '' : 'warn'}"><h3>Aviso importante</h3><p>${esc(AVISO_TXT)}</p>${s.avisoAceptado ? `<small>Lo aceptaste el ${fmtFecha(ymd(new Date(s.avisoAceptado)))}.</small>` : '<div class="row"><button class="pri grow" data-a="aviso-ok">Entendí y acepto</button></div>'}</div>
     ${plug('GoogleLogin') ? `<div class="card"><h3>Cuenta</h3>${cuenta() ? `<p>Entraste como <b>${esc(cuenta().nombre || cuenta().email)}</b><br><span class="muted">${esc(cuenta().email)}</span></p><div class="row"><button class="ghost grow" data-a="g-salir">Salir de la cuenta</button></div>` : `<p class="muted">Opcional: entrá con tu cuenta de Google para que la app te salude por tu nombre.</p><div class="row"><button class="pri grow" data-a="g-entrar">Entrar con Google</button></div>`}<small>Solo se usan tu nombre y tu mail en este teléfono. Tus datos de salud no se envían a ningún lado.</small></div>` : ''}
-    <div class="card"><h3>Acerca de A Mi Ritmo</h3><p class="creditos">Desarrollado por <b>${CREDITOS}</b><br><span class="muted">San Juan, Argentina</span></p><p>Contacto: <b>${CONTACTO}</b></p><div class="row"><a class="btn-link" href="mailto:${CONTACTO}?subject=${encodeURIComponent('A Mi Ritmo: consulta')}">Escribirnos por correo</a></div><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. A Mi Ritmo no es un equipo médico ni un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
+    <div class="card"><h3>Acerca de A Mi Ritmo</h3><p class="creditos">Desarrollado por <b>${CREDITOS}</b><br><span class="muted">San Juan, Argentina</span></p><p>Contacto: <b>${CONTACTO}</b></p><div class="row"><button class="ghost grow" data-a="politica">Política de privacidad</button></div><div class="row"><a class="btn-link" href="mailto:${CONTACTO}?subject=${encodeURIComponent('A Mi Ritmo: consulta')}">Escribirnos por correo</a></div><p>Versión ${APP_V}${NATIVE ? ' (Android)' : ''}. A Mi Ritmo no es un equipo médico ni un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p>
       <div class="row"><button class="ghost grow" data-a="wiz-rehacer">Rehacer el asistente inicial</button></div></div>
     ${mod('ejercicio') ? `<div class="card"><h3>Figuras de los ejercicios</h3><label class="chk"><input type="checkbox" data-a="fig-anim" ${s.figAnim !== false ? 'checked' : ''}>Mostrar las figuras con un pequeño movimiento</label><small>Si preferís verlas quietas, destildá. También podés tocar una figura para pausarla.</small></div>` : ''}
     ${NATIVE ? `<div class="card"><h3>Privacidad de los avisos</h3><label class="chk"><input type="checkbox" data-a="aviso-privado" ${s.avisoPrivado === true ? 'checked' : ''}>Avisos sin detalles en la pantalla de bloqueo</label><small>Si lo activás, los avisos solo dicen "Tenés un aviso" y no muestran nombres de rutinas, mediciones ni recordatorios.</small></div>` : ''}
@@ -872,7 +872,8 @@
     let cuerpo = '';
     if (p === 'bienvenida') cuerpo = `<h2>Bienvenido a A Mi Ritmo</h2><p>Es una libreta para armar <b>tu propio plan de hábitos de salud</b> y anotar tus avances. Vos elegís qué seguir, cuánto y con qué límites. Lo que cargues queda en tu teléfono.</p>
       <div class="card warn"><b>Importante</b><p>A Mi Ritmo no es un servicio médico: no diagnostica ni indica tratamientos. Las metas y los límites de salud los definís vos, idealmente con tu médico o profesional.</p></div>
-      ${plug('GoogleLogin') ? `<div class="card"><h3>Tu cuenta (opcional)</h3>${cuenta() ? `<p>Hola, <b>${esc(cuenta().nombre || cuenta().email)}</b>.</p>` : `<p class="muted">Podés entrar con tu cuenta de Google para que te salude por tu nombre. No es obligatorio.</p><div class="row"><button class="ghost grow" data-a="g-entrar">Entrar con Google</button></div>`}<small>Tus datos de salud se quedan en este teléfono.</small></div>` : ''}`;
+      ${plug('GoogleLogin') ? `<div class="card"><h3>Tu cuenta (opcional)</h3>${cuenta() ? `<p>Hola, <b>${esc(cuenta().nombre || cuenta().email)}</b>.</p>` : `<p class="muted">Podés entrar con tu cuenta de Google para que te salude por tu nombre. No es obligatorio.</p><div class="row"><button class="ghost grow" data-a="g-entrar">Entrar con Google</button></div>`}<small>Tus datos de salud se quedan en este teléfono.</small></div>` : ''}
+      <div class="row"><button class="ghost grow" data-a="politica">Ver la política de privacidad</button></div>`;
     if (p === 'modulos') cuerpo = `<h2>¿Qué querés seguir?</h2><p class="muted">Elegí lo que te sirva. Podés cambiarlo cuando quieras.</p>${MODULOS.map(([k, ic, n, t]) => `<button class="chk-it ${wiz.mods[k] ? 'on' : ''}" data-a="wiz-mod" data-k="${k}" aria-pressed="${wiz.mods[k] ? 'true' : 'false'}"><span>${wiz.mods[k] ? ICONO('tilde-on') : ICONO('tilde-off')}</span><span class="tx"><b>${ICONO(ic)} ${n}</b><small>${t}</small></span></button>`).join('')}`;
     if (p === 'mediciones') cuerpo = `<h2>¿Qué querés medir?</h2><p class="muted">Después podés poner tus propios límites en cada una (opcional).</p>${Object.keys(CATALOGO).map(k => `<button class="chk-it ${wiz.meds[k] ? 'on' : ''}" data-a="wiz-med" data-k="${k}" aria-pressed="${wiz.meds[k] ? 'true' : 'false'}"><span>${wiz.meds[k] ? ICONO('tilde-on') : ICONO('tilde-off')}</span>${ICONO(CATALOGO[k].ic)} ${esc(CATALOGO[k].n)}</button>`).join('')}`;
     if (p === 'ejercicio') cuerpo = `<h2>Tu rutina de ejercicio</h2><p class="muted">Elegí ejemplos para empezar o salteá este paso y creá tus propios ejercicios después. Son ejemplos suaves, <b>no una indicación</b>: consultalos con tu profesional.</p><p class="muted">Los de espalda y core van en una rutina aparte, para que elijas sus propios días y horario (en Ajustes → Mi plan de ejercicio).</p>${BIBLIOTECA.map((b, n) => `${n === 0 || grupoBib(b) !== grupoBib(BIBLIOTECA[n - 1]) ? `<h3 class="sub">${GRUPOS_BIB[grupoBib(b)].titulo}</h3>` : ''}<button class="chk-it ${wiz.bib[n] ? 'on' : ''}" data-a="wiz-bib" data-k="${n}" aria-pressed="${wiz.bib[n] ? 'true' : 'false'}"><span>${wiz.bib[n] ? ICONO('tilde-on') : ICONO('tilde-off')}</span><span class="tx"><b>${esc(b.n)}</b><small>${esc(dosisEj(b))}</small></span></button>`).join('')}`;
@@ -1136,6 +1137,13 @@
       if (!v.txt.trim()) return 'Pegá el texto del respaldo.';
       setTimeout(() => importarTexto(v.txt), 0); return undefined;
     });
+  }
+  function modalPolitica() {
+    const P = window.POLITICA; if (!P) return;
+    $('#modal').innerHTML = `<div class="modal-box politica" role="dialog" aria-modal="true" aria-label="${esc(P.titulo)}"><h3>${esc(P.titulo)}</h3><small>Última actualización: ${esc(P.actualizada)}</small>
+      ${P.secciones.map(([t, ps]) => `<h4>${esc(t)}</h4>${ps.map(x => `<p>${esc(x)}</p>`).join('')}`).join('')}
+      <div class="row" style="margin-top:10px"><button class="pri grow" data-a="modal-cancel">Cerrar</button></div></div>`;
+    $('#modal').hidden = false;
   }
   function borrarTodo() {
     if (hayDatos() && confirm('Antes de borrar: ¿querés exportar un respaldo? Aceptá para exportarlo (no se borra nada todavía).')) { exportar(); return; }
@@ -1427,6 +1435,7 @@
       case 'copiar': copiarRespaldo(); break;
       case 'import': $('#fileIn').click(); break;
       case 'pegar': modalPegarRespaldo(); break;
+      case 'politica': modalPolitica(); break;
       case 'borrar': borrarTodo(); break;
       case 'resp-luego': S.settings.respaldoPospuesto = hoy(); changed(); break;
       case 'del': {

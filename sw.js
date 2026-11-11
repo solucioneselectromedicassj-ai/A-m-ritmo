@@ -1,6 +1,6 @@
 /* Service worker: la app funciona sin conexión (cache-first del "shell"). */
-const CACHE = 'amiritmo-v5';
-const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'figuras.js', 'manifest.json', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'amiritmo-v6';
+const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'figuras.js', 'politica.js', 'manifest.json', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

@@ -1,2 +1,8 @@
 node_modules/
 www/
+
+# Claves de firma de release: NUNCA al repositorio
+*.jks
+*.keystore
+!android/app/debug.keystore
+clave-subida*

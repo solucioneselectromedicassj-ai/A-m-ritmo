@@ -7,8 +7,9 @@ android {
         applicationId "ar.amiritmo.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "0.1.0"
+        // En Play cada subida necesita un versionCode mayor: el workflow de release lo pasa (VERSION_CODE).
+        versionCode Integer.parseInt(System.getenv("VERSION_CODE") ?: "1")
+        versionName System.getenv("VERSION_NAME") ?: "0.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -25,8 +26,20 @@ android {
             keyPassword 'android'
         }
     }
+    // Clave de subida (release): solo existe en el workflow "AAB firmado" (secretos de GitHub). Nunca va en el repo.
+    if (System.getenv("RELEASE_KEYSTORE_FILE")) {
+        signingConfigs {
+            release {
+                storeFile file(System.getenv("RELEASE_KEYSTORE_FILE"))
+                storePassword System.getenv("RELEASE_STORE_PASSWORD")
+                keyAlias System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (System.getenv("RELEASE_KEYSTORE_FILE")) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
