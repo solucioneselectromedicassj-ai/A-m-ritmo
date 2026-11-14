@@ -452,9 +452,11 @@
   let respaldoVivo = false;
   function tarjetaRespaldo() {
     const s = S.settings;
-    if (!hayRegistros() || diasDeUso() < 3 || diasSinRespaldo() < 7 || s.respaldoPospuesto === hoy()) return '';
+    // El aviso aparece pocas veces: después de mostrarse o de cerrarlo ("Luego") no vuelve por 30 días. El estado y los botones quedan siempre en Ajustes.
+    const hace = f => (f ? Math.floor((fechaLocal(hoy()) - fechaLocal(f)) / 864e5) : Infinity);
+    if (!hayRegistros() || diasDeUso() < 3 || diasSinRespaldo() < 7 || hace(s.respaldoPospuesto) < 30) return '';
     if (!respaldoVivo) {
-      if (s.respaldoAvisoDia === hoy()) return '';
+      if (hace(s.respaldoAvisoDia) < 30) return '';
       respaldoVivo = true; s.respaldoAvisoDia = hoy(); save();
       setTimeout(() => { respaldoVivo = false; if (tab === 'hoy' && !wiz) render(); }, 10000);
     }

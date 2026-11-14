@@ -154,14 +154,16 @@ test('importar: cada problema se explica (informe en HTML, texto cualquiera, JSO
   assert.strictEqual((await estado(page)).registros.m_peso[0].kg, 80, 'ningún intento tocó los datos');
 });
 
-test('aviso de respaldo: aparece unos segundos, se va solo y no vuelve el mismo día; en Ajustes queda siempre', async ({ abrir }) => {
+test('aviso de respaldo: aparece unos segundos, se va solo y no vuelve al día siguiente (recién a los 30 días); en Ajustes queda siempre', async ({ abrir }) => {
   const ls = con({ settings: { creado: '2026-10-01' } });
   const a = await abrir({ ls });
   assert.match(await texto(a.page), /Hacé un respaldo[\s\S]*Todavía no exportaste ninguno/); assert.ok(await a.page.locator('.card.efimera').count() === 1);
   await a.page.waitForTimeout(10600);
   assert.doesNotMatch(await texto(a.page), /Hacé un respaldo/, 'desapareció solo');
-  await a.page.reload(); await a.page.waitForFunction(() => window.SA); assert.doesNotMatch(await texto(a.page), /Hacé un respaldo/, 'una vez por día');
+  await a.page.reload(); await a.page.waitForFunction(() => window.SA); assert.doesNotMatch(await texto(a.page), /Hacé un respaldo/, 'no vuelve al recargar');
   await ir(a.page, 'ajustes'); assert.match(await texto(a.page), /Último respaldo: nunca/); assert.strictEqual(await a.page.locator('[data-a=export]').count(), 1);
   const manana = await abrir({ ls: await a.page.evaluate(() => ({ miplanV1: localStorage.getItem('miplanV1') })), fecha: '2026-10-20T12:00:00' });
-  assert.match(await texto(manana.page), /Hacé un respaldo/, 'al otro día vuelve a avisar una vez');
+  assert.doesNotMatch(await texto(manana.page), /Hacé un respaldo/, 'al otro día NO vuelve');
+  const mes = await abrir({ ls: await a.page.evaluate(() => ({ miplanV1: localStorage.getItem('miplanV1') })), fecha: '2026-11-19T12:00:00' });
+  assert.match(await texto(mes.page), /Hacé un respaldo/, 'a los 30 días vuelve a avisar una vez');
 });
